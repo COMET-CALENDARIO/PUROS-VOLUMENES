@@ -251,7 +251,7 @@
 
 <script>
 const STORAGE_KEY = 'calculadora_api_url';
-const API_URL_FIJA = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnSq6Vfz5LLQ7YNHeEnk1Q_KygGKOmVvPXTKirYdlyCHFgqqyBkbjjIUyC7boBNyaZwQdnrRcwUATOCdIM6k7u0BLwO-o2jlTvpMMnCQ1IuYvnLOKkKgnd7pEj9S7rrV6CrU9Z4KrK46SJRK21fI5JipaIKdh23Auwkkg2QDQl7g2YZdx052LeQy0fjyZBB7ZhFY_YVdRepqvv-B1BTryY3bmFArTkyExU9fjDVnpuOe3nEs_zr6R4nbArHp4fip7T9pFMwQUXZU_CH5gqDo-DB_sFMUTDUBRPHEWZS-&lib=MTbYuixXU_MHy3p0xSLkpR36-umQZ4c4u';
+const API_URL_FIJA = 'https://script.google.com/macros/s/AKfycbxed1C4GiRDBEfe9DHIR3dI04qCo3xkVAV0Y2TvcpcXOUCfJEWVFfxDPc25yNuFZ10X/exec';
 let db = [];
 let products = [];
 let containers = [
@@ -265,113 +265,86 @@ let selCont = 0;
 
 // ── Al cargar la página, conectar automáticamente ──
 window.addEventListener('load', () => {
-  document.getElementById('setup-panel').style.display = 'none';
-  document.getElementById('api-url').value = API_URL_FIJA;
   renderContainers();
-  conectarAPI(true);
+  cargarDatos();
 });
 
-function guardarUrl() {
-  const url = document.getElementById('api-url').value.trim();
-  if (url) localStorage.setItem(STORAGE_KEY, url);
-}
-
-function conectarAPI(silencioso = false) {
+function cargarDatos() {
+  // Mostrar estado de carga
   document.getElementById('db-section').style.display = 'block';
   document.getElementById('db-loading').style.display = 'flex';
   document.getElementById('db-wrap').style.display = 'none';
-  document.getElementById('topbar-status').innerHTML = `<span class="badge badge-warn"><span class="spinner" style="width:10px;height:10px;border-width:1.5px;display:inline-block;vertical-align:-2px;margin-right:4px"></span> Cargando datos...</span>`;
+  document.getElementById('db-badge').textContent = 'cargando...';
+  document.getElementById('db-badge').className = 'badge badge-warn';
+  document.getElementById('topbar-status').innerHTML = '<span class="badge badge-warn">⏳ Conectando con Drive...</span>';
 
-  // Google Apps Script redirige a scriptusercontent.com
-  // fetch con redirect:'follow' lo maneja perfectamente
-  fetch(API_URL_FIJA + '?t=' + Date.now(), {
-    method: 'GET',
-    redirect: 'follow'
-  })
-  .then(resp => {
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    return resp.text();
-  })
-  .then(text => {
-    // Puede venir como JSON puro o como JSONP: callback({...})
-    let data;
-    const jsonpMatch = text.match(/^[^(]+\((.+)\)\s*;?\s*$/s);
-    if (jsonpMatch) {
-      data = JSON.parse(jsonpMatch[1]);
-    } else {
-      data = JSON.parse(text);
-    }
-    if (data.error) throw new Error(data.error);
-    if (!data.productos || !Array.isArray(data.productos)) throw new Error('Formato inesperado.');
-    db = data.productos;
-    renderDB();
-    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">✓ Drive conectado · ${db.length} productos</span>`;
-  })
-  .catch(err => {
-    // Si fetch falla por CORS, fallback a JSONP con script tag
-    console.warn('fetch falló, intentando JSONP...', err.message);
-    conectarJSONP();
-  });
-}
-
-function conectarJSONP() {
+  // Limpiar script anterior
   const old = document.getElementById('jsonp-script');
   if (old) old.remove();
+  if (window._cb) delete window._cb;
 
-  const cbName = '_gasCallback';
-  const timeout = setTimeout(() => {
-    delete window[cbName];
+  // Timeout de 12 segundos
+  const timer = setTimeout(() => {
+    if (!window._cb) return;
+    delete window._cb;
     const s = document.getElementById('jsonp-script');
     if (s) s.remove();
-    mostrarError('No se pudo conectar. Abre esta URL en el navegador para verificar: ' + API_URL_FIJA);
-  }, 15000);
+    mostrarError('Sin respuesta del servidor. Inténtalo de nuevo.');
+  }, 12000);
 
-  window[cbName] = function(data) {
-    clearTimeout(timeout);
-    delete window[cbName];
+  // Callback JSONP
+  window._cb = function(data) {
+    clearTimeout(timer);
+    delete window._cb;
     const s = document.getElementById('jsonp-script');
     if (s) s.remove();
-    if (data.error) { mostrarError(data.error); return; }
-    if (!data.productos || !Array.isArray(data.productos)) { mostrarError('Formato inesperado del script.'); return; }
+
+    if (!data || data.error) {
+      mostrarError('Error del script: ' + (data ? data.error : 'sin datos'));
+      return;
+    }
+    if (!Array.isArray(data.productos) || data.productos.length === 0) {
+      mostrarError('No se encontraron productos en la hoja de cálculo.');
+      return;
+    }
+
     db = data.productos;
     renderDB();
-    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">✓ Drive conectado · ${db.length} productos</span>`;
+    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">✓ Conectado · ${db.length} productos</span>`;
   };
 
+  // Inyectar script JSONP apuntando directamente a scriptusercontent (sin redirección)
   const script = document.createElement('script');
   script.id = 'jsonp-script';
-  script.src = API_URL_FIJA + '?callback=' + cbName + '&t=' + Date.now();
-  script.onerror = () => {
-    clearTimeout(timeout);
-    delete window[cbName];
-    mostrarError('Error de conexión con Google Drive. Verifica que el script está publicado con acceso "Cualquier persona".');
+  script.src = API_URL_FIJA + '?callback=_cb&t=' + Date.now();
+  script.onerror = function() {
+    clearTimeout(timer);
+    delete window._cb;
+    mostrarError('No se pudo cargar el script de Google. Comprueba tu conexión.');
   };
   document.head.appendChild(script);
 }
 
 function mostrarError(msg) {
   document.getElementById('db-loading').style.display = 'none';
-  document.getElementById('db-badge').textContent = 'error de conexión';
+  document.getElementById('db-badge').textContent = 'error';
   document.getElementById('db-badge').className = 'badge badge-danger';
-  document.getElementById('topbar-status').innerHTML = `<span class="badge badge-danger">⚠ ${msg}</span>`;
+  document.getElementById('topbar-status').innerHTML = `<span class="badge badge-danger">⚠ Error</span>`;
+  // Mostrar error visible en la sección de BD
+  document.getElementById('db-wrap').innerHTML = `<div style="padding:12px 4px;font-size:13px;color:var(--danger-text);background:var(--danger-bg);border-radius:var(--radius);display:flex;align-items:flex-start;gap:8px"><span>⚠</span><div>${msg}<br><button onclick="cargarDatos()" style="margin-top:8px;padding:6px 14px;font-size:12px;cursor:pointer;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg)">🔄 Reintentar</button></div></div>`;
+  document.getElementById('db-wrap').style.display = 'block';
 }
 
-function mostrarUrlStatus(msg, ok) {
-  const el = document.getElementById('url-status');
-  el.className = 'url-status ' + (ok ? 'url-ok' : 'url-err');
-  el.style.display = 'block';
-  el.textContent = msg;
+function recargarDB() {
+  cargarDatos();
 }
 
-async function recargarDB() {
-  const url = API_URL_FIJA;
-  document.getElementById('db-loading').style.display = 'flex';
-  document.getElementById('db-wrap').style.display = 'none';
-  document.getElementById('db-badge').textContent = 'actualizando...';
-  document.getElementById('db-badge').className = 'badge badge-warn';
-  document.getElementById('api-url').value = url;
-  await conectarAPI(false);
-}
+function guardarUrl() {}
+function conectarAPI() { cargarDatos(); }
+function conectarJSONP() { cargarDatos(); }
+function mostrarUrlStatus() {}
+
+
 
 function renderDB() {
   document.getElementById('db-loading').style.display = 'none';
