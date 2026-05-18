@@ -136,57 +136,9 @@
 
 <div class="container">
 
-  <!-- SETUP APPS SCRIPT -->
-  <div class="setup-panel" id="setup-panel">
-    <div class="setup-title">
-      <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      Conectar con Google Drive — solo la primera vez
-    </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <div class="step-title">Abre Google Apps Script</div>
-          <div class="step-desc">Ve a <strong>script.google.com</strong> → haz clic en <strong>"Nuevo proyecto"</strong>. Borra todo el contenido que aparece por defecto.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <div class="step-title">Pega el código del archivo PASO1</div>
-          <div class="step-desc">Abre el archivo <strong>PASO1_AppsScript_API.js</strong> que descargaste junto a esta app, copia todo su contenido y pégalo en el editor de Apps Script. Guarda con <strong>Ctrl+S</strong>.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <div class="step-title">Publica como aplicación web</div>
-          <div class="step-desc">
-            Haz clic en <strong>"Implementar"</strong> → <strong>"Nueva implementación"</strong><br>
-            · Tipo: <strong>Aplicación web</strong><br>
-            · Ejecutar como: <strong>Yo (tu cuenta de Google)</strong><br>
-            · Quién tiene acceso: <strong>Cualquier persona</strong><br>
-            Haz clic en <strong>"Implementar"</strong> y autoriza los permisos que pide.
-          </div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <div class="step-title">Pega aquí la URL que genera</div>
-          <div class="step-desc">Copia la URL de implementación (empieza por <code>https://script.google.com/macros/s/...</code>) y pégala aquí:</div>
-          <div class="url-row">
-            <input type="url" id="api-url" placeholder="https://script.google.com/macros/s/.../exec" oninput="guardarUrl()">
-            <button class="btn" onclick="conectarAPI()">
-              <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-              Conectar
-            </button>
-          </div>
-          <div id="url-status" class="url-status"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- input oculto para compatibilidad interna -->
+  <input type="url" id="api-url" style="display:none">
+  <div id="url-status" style="display:none"></div>
 
   <!-- BD CARGADA -->
   <div class="section" id="db-section" style="display:none">
@@ -299,7 +251,7 @@
 
 <script>
 const STORAGE_KEY = 'calculadora_api_url';
-const API_URL_FIJA = 'https://script.google.com/macros/s/AKfycbzxaKXBTi5ah_d0A8Vm5hiAzfEPM7utKSX7dItmACZLHiII2Ss04xYRcJaw1GkbZBJy/exec';
+const API_URL_FIJA = 'https://script.google.com/macros/s/AKfycbxed1C4GiRDBEfe9DHIR3dI04qCo3xkVAV0Y2TvcpcXOUCfJEWVFfxDPc25yNuFZ10X/exec';
 let db = [];
 let products = [];
 let containers = [
@@ -330,48 +282,60 @@ function conectarAPI(silencioso = false) {
   document.getElementById('db-wrap').style.display = 'none';
   document.getElementById('topbar-status').innerHTML = `<span class="badge badge-warn"><span class="spinner" style="width:10px;height:10px;border-width:1.5px;display:inline-block;vertical-align:-2px;margin-right:4px"></span> Cargando datos...</span>`;
 
-  // Limpiar callback anterior si existe
-  if (window._jsonpCallback) {
-    delete window._jsonpCallback;
-    const old = document.getElementById('jsonp-script');
-    if (old) old.remove();
-  }
+  // Google Apps Script redirige a scriptusercontent.com
+  // fetch con redirect:'follow' lo maneja perfectamente
+  fetch(API_URL_FIJA + '?t=' + Date.now(), {
+    method: 'GET',
+    redirect: 'follow'
+  })
+  .then(resp => {
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.text();
+  })
+  .then(text => {
+    // Puede venir como JSON puro o como JSONP: callback({...})
+    let data;
+    const jsonpMatch = text.match(/^[^(]+\((.+)\)\s*;?\s*$/s);
+    if (jsonpMatch) {
+      data = JSON.parse(jsonpMatch[1]);
+    } else {
+      data = JSON.parse(text);
+    }
+    if (data.error) throw new Error(data.error);
+    if (!data.productos || !Array.isArray(data.productos)) throw new Error('Formato inesperado.');
+    db = data.productos;
+    renderDB();
+    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">✓ Drive conectado · ${db.length} productos</span>`;
+  })
+  .catch(err => {
+    // Si fetch falla por CORS, fallback a JSONP con script tag
+    console.warn('fetch falló, intentando JSONP...', err.message);
+    conectarJSONP();
+  });
+}
 
-  // JSONP — funciona desde cualquier dominio sin problemas de CORS
-  const cbName = '_jsonpCallback';
-  window[cbName] = function(data) {
+function conectarJSONP() {
+  const old = document.getElementById('jsonp-script');
+  if (old) old.remove();
+
+  const cbName = '_gasCallback';
+  const timeout = setTimeout(() => {
     delete window[cbName];
     const s = document.getElementById('jsonp-script');
     if (s) s.remove();
-
-    if (data.error) {
-      mostrarError('Error desde el script: ' + data.error);
-      return;
-    }
-    if (!data.productos || !Array.isArray(data.productos)) {
-      mostrarError('El script no devolvió datos válidos. Verifica que está publicado correctamente.');
-      return;
-    }
-
-    db = data.productos;
-    renderDB();
-    document.getElementById('setup-panel').style.display = 'none';
-    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">✓ Drive conectado · ${db.length} productos</span>`;
-  };
-
-  // Timeout por si el script no responde
-  const timeout = setTimeout(() => {
-    if (window[cbName]) {
-      delete window[cbName];
-      mostrarError('Tiempo de espera agotado. Comprueba que el script de Apps Script está publicado como "Cualquier persona".');
-    }
+    mostrarError('No se pudo conectar. Abre esta URL en el navegador para verificar: ' + API_URL_FIJA);
   }, 15000);
 
-  window[cbName]._timeout = timeout;
-  const original = window[cbName];
   window[cbName] = function(data) {
     clearTimeout(timeout);
-    original(data);
+    delete window[cbName];
+    const s = document.getElementById('jsonp-script');
+    if (s) s.remove();
+    if (data.error) { mostrarError(data.error); return; }
+    if (!data.productos || !Array.isArray(data.productos)) { mostrarError('Formato inesperado del script.'); return; }
+    db = data.productos;
+    renderDB();
+    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">✓ Drive conectado · ${db.length} productos</span>`;
   };
 
   const script = document.createElement('script');
@@ -380,7 +344,7 @@ function conectarAPI(silencioso = false) {
   script.onerror = () => {
     clearTimeout(timeout);
     delete window[cbName];
-    mostrarError('No se pudo contactar con el script. Verifica la URL y los permisos de publicación.');
+    mostrarError('Error de conexión con Google Drive. Verifica que el script está publicado con acceso "Cualquier persona".');
   };
   document.head.appendChild(script);
 }
@@ -389,13 +353,7 @@ function mostrarError(msg) {
   document.getElementById('db-loading').style.display = 'none';
   document.getElementById('db-badge').textContent = 'error de conexión';
   document.getElementById('db-badge').className = 'badge badge-danger';
-  document.getElementById('topbar-status').innerHTML = `<span class="badge badge-danger">⚠ Error de conexión</span>`;
-  // Mostrar el panel de setup con el error
-  document.getElementById('setup-panel').style.display = 'block';
-  const statusEl = document.getElementById('url-status');
-  statusEl.className = 'url-status url-err';
-  statusEl.style.display = 'block';
-  statusEl.textContent = '⚠ ' + msg;
+  document.getElementById('topbar-status').innerHTML = `<span class="badge badge-danger">⚠ ${msg}</span>`;
 }
 
 function mostrarUrlStatus(msg, ok) {
