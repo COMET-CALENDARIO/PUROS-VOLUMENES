@@ -324,41 +324,78 @@ function guardarUrl() {
   if (url) localStorage.setItem(STORAGE_KEY, url);
 }
 
-async function conectarAPI(silencioso = false) {
-  const url = API_URL_FIJA;
-
-  const statusEl = document.getElementById('url-status');
-  statusEl.className = 'url-status';
-  statusEl.style.display = 'flex';
-  statusEl.style.alignItems = 'center';
-  statusEl.style.gap = '8px';
-  statusEl.innerHTML = '<span class="spinner"></span> Conectando con Google Drive...';
-
+function conectarAPI(silencioso = false) {
   document.getElementById('db-section').style.display = 'block';
   document.getElementById('db-loading').style.display = 'flex';
   document.getElementById('db-wrap').style.display = 'none';
+  document.getElementById('topbar-status').innerHTML = `<span class="badge badge-warn"><span class="spinner" style="width:10px;height:10px;border-width:1.5px;display:inline-block;vertical-align:-2px;margin-right:4px"></span> Cargando datos...</span>`;
 
-  try {
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    if (!data.productos || !Array.isArray(data.productos)) throw new Error('Formato de respuesta inesperado.');
+  // Limpiar callback anterior si existe
+  if (window._jsonpCallback) {
+    delete window._jsonpCallback;
+    const old = document.getElementById('jsonp-script');
+    if (old) old.remove();
+  }
+
+  // JSONP — funciona desde cualquier dominio sin problemas de CORS
+  const cbName = '_jsonpCallback';
+  window[cbName] = function(data) {
+    delete window[cbName];
+    const s = document.getElementById('jsonp-script');
+    if (s) s.remove();
+
+    if (data.error) {
+      mostrarError('Error desde el script: ' + data.error);
+      return;
+    }
+    if (!data.productos || !Array.isArray(data.productos)) {
+      mostrarError('El script no devolvió datos válidos. Verifica que está publicado correctamente.');
+      return;
+    }
 
     db = data.productos;
-    localStorage.setItem(STORAGE_KEY, url);
     renderDB();
-
-    mostrarUrlStatus(`✓ Conectado — ${db.length} productos cargados desde "${data.archivo || 'TABLA_MEDIDAS_PUROS'}"`, true);
     document.getElementById('setup-panel').style.display = 'none';
-    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">Drive conectado · ${db.length} productos</span>`;
+    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">✓ Drive conectado · ${db.length} productos</span>`;
+  };
 
-  } catch (err) {
-    mostrarUrlStatus('Error: ' + err.message + '. Verifica que la URL es correcta y que el script está publicado como "Cualquier persona".', false);
-    document.getElementById('db-loading').style.display = 'none';
-    document.getElementById('db-badge').textContent = 'error';
-    document.getElementById('db-badge').className = 'badge badge-danger';
-  }
+  // Timeout por si el script no responde
+  const timeout = setTimeout(() => {
+    if (window[cbName]) {
+      delete window[cbName];
+      mostrarError('Tiempo de espera agotado. Comprueba que el script de Apps Script está publicado como "Cualquier persona".');
+    }
+  }, 15000);
+
+  window[cbName]._timeout = timeout;
+  const original = window[cbName];
+  window[cbName] = function(data) {
+    clearTimeout(timeout);
+    original(data);
+  };
+
+  const script = document.createElement('script');
+  script.id = 'jsonp-script';
+  script.src = API_URL_FIJA + '?callback=' + cbName + '&t=' + Date.now();
+  script.onerror = () => {
+    clearTimeout(timeout);
+    delete window[cbName];
+    mostrarError('No se pudo contactar con el script. Verifica la URL y los permisos de publicación.');
+  };
+  document.head.appendChild(script);
+}
+
+function mostrarError(msg) {
+  document.getElementById('db-loading').style.display = 'none';
+  document.getElementById('db-badge').textContent = 'error de conexión';
+  document.getElementById('db-badge').className = 'badge badge-danger';
+  document.getElementById('topbar-status').innerHTML = `<span class="badge badge-danger">⚠ Error de conexión</span>`;
+  // Mostrar el panel de setup con el error
+  document.getElementById('setup-panel').style.display = 'block';
+  const statusEl = document.getElementById('url-status');
+  statusEl.className = 'url-status url-err';
+  statusEl.style.display = 'block';
+  statusEl.textContent = '⚠ ' + msg;
 }
 
 function mostrarUrlStatus(msg, ok) {
