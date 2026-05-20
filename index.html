@@ -3,585 +3,1793 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Calculadora de Contenedores — Almacén</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<title>Gestión de Pedidos — Puros & Logística</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #ffffff; --bg2: #f8f8f6; --bg3: #f1f0ec;
-    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
-    --text: #1a1a18; --text2: #5a5a56; --text3: #9a9a94;
-    --blue-bg: #e6f1fb; --blue-text: #0c447c;
-    --green-bg: #eaf3de; --green-text: #27500a;
-    --warn-bg: #faeeda; --warn-text: #633806;
-    --danger-bg: #fcebeb; --danger-text: #791f1f;
-    --radius: 8px; --radius-lg: 12px;
-  }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); font-size: 15px; line-height: 1.5; min-height: 100vh; }
-  .topbar { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
-  .topbar-icon { width: 32px; height: 32px; background: var(--text); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; }
-  .topbar-icon svg { width: 18px; height: 18px; stroke: white; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .topbar h1 { font-size: 16px; font-weight: 500; }
-  .topbar-status { margin-left: auto; font-size: 12px; }
-  .container { max-width: 860px; margin: 0 auto; padding: 24px 20px 60px; }
-  .section { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; }
-  .section-title { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .section-title svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-  .badge { font-size: 11px; padding: 2px 9px; border-radius: 6px; font-weight: 500; }
-  .badge-warn { background: var(--warn-bg); color: var(--warn-text); }
-  .badge-success { background: var(--green-bg); color: var(--green-text); }
-  .badge-danger { background: var(--danger-bg); color: var(--danger-text); }
-  .badge-info { background: var(--blue-bg); color: var(--blue-text); }
-  label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 5px; }
-  input[type="text"], input[type="number"], input[type="url"] {
-    width: 100%; padding: 8px 10px; font-size: 13px; border: 0.5px solid var(--border2);
-    border-radius: var(--radius); background: var(--bg); color: var(--text); outline: none;
-    transition: border-color 0.15s; font-family: inherit;
-  }
-  input:focus { border-color: #378add; box-shadow: 0 0 0 3px rgba(55,138,221,0.12); }
-  input[readonly] { background: var(--bg2); color: var(--text2); cursor: default; }
-  button { font-family: inherit; cursor: pointer; }
-  .btn { padding: 8px 16px; font-size: 13px; font-weight: 500; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .btn:hover { background: var(--bg2); }
-  .btn:disabled { opacity: 0.4; cursor: default; }
-  .btn-ghost { border-color: var(--border); color: var(--text2); font-size: 12px; padding: 6px 12px; }
-  .btn-ghost:hover { background: var(--bg2); }
-  .btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); font-size: 14px; padding: 11px 20px; width: 100%; justify-content: center; }
-  .btn-primary:hover { opacity: 0.88; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* SETUP PANEL */
-  .setup-panel { border: 2px solid #185fa5; border-radius: var(--radius-lg); background: var(--blue-bg); padding: 20px; margin-bottom: 16px; }
-  .setup-title { font-size: 14px; font-weight: 500; color: var(--blue-text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-  .steps { counter-reset: step; }
-  .step { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
-  .step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--blue-text); color: white; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
-  .step-body { flex: 1; }
-  .step-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; color: var(--text); }
-  .step-desc { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 6px; }
-  .code-block { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 6px 10px; font-family: monospace; font-size: 12px; color: var(--text); margin: 4px 0; word-break: break-all; }
-  .url-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-  .url-row input { flex: 1; }
-  .url-status { font-size: 12px; margin-top: 6px; padding: 6px 10px; border-radius: var(--radius); display: none; }
-  .url-ok { background: var(--green-bg); color: var(--green-text); }
-  .url-err { background: var(--danger-bg); color: var(--danger-text); }
+:root {
+  --bg: #f5f3ef;
+  --white: #ffffff;
+  --border: #e0dbd3;
+  --border-light: #ece8e1;
+  --accent: #8b6508;
+  --accent-light: #b8860b;
+  --accent-bg: #fdf8ed;
+  --accent-border: #e8d9b0;
+  --text: #1a1a1a;
+  --text-mid: #555555;
+  --text-dim: #888888;
+  --text-light: #aaaaaa;
+  --input-bg: #fafaf8;
+  --input-border: #d5d0c8;
+  --blue: #185fa5;
+  --blue-bg: #e6f1fb;
+  --green: #15803d;
+  --green-bg: #dcfce7;
+  --green-border: #86efac;
+  /* Terrestre */
+  --terr: #b45309;
+  --terr-bg: #fff7ed;
+  --terr-border: #fed7aa;
+  --terr-dark: #92400e;
+}
 
-  .db-info { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding: 10px 14px; background: var(--bg2); border-radius: var(--radius); font-size: 13px; }
-  .db-wrap { max-height: 190px; overflow-y: auto; margin-top: 12px; }
-  .db-table { width: 100%; font-size: 12px; border-collapse: collapse; table-layout: fixed; }
-  .db-table th { text-align: left; padding: 6px 8px; font-weight: 500; color: var(--text2); border-bottom: 0.5px solid var(--border); font-size: 11px; }
-  .db-table td { padding: 6px 8px; border-bottom: 0.5px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .db-table tr:last-child td { border-bottom: none; }
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
 
-  .product-row { display: grid; grid-template-columns: 1fr 110px 150px auto; gap: 8px; align-items: end; margin-bottom: 10px; }
-  .autocomplete { position: relative; }
-  .ac-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius); z-index: 200; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.10); }
-  .ac-item { padding: 9px 12px; cursor: pointer; font-size: 13px; }
-  .ac-item:hover { background: var(--bg2); }
-  .ac-ref { font-weight: 500; }
-  .ac-desc { font-size: 11px; color: var(--text2); margin-top: 1px; }
-  .product-list { margin-top: 10px; }
-  .product-item { background: var(--bg2); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 6px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; }
+/* HEADER */
+.app-header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 24px 0;
+  text-align: center;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.app-header-tag {
+  font-size: 11px; letter-spacing: 5px; color: var(--accent);
+  font-weight: 600; text-transform: uppercase; margin-bottom: 4px;
+}
+.app-header h1 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 26px; font-weight: 400; letter-spacing: 1px; color: var(--text);
+  margin-bottom: 14px;
+}
 
-  .container-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-  .cont-card { border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px; cursor: pointer; transition: border-color 0.15s; }
-  .cont-card:hover { border-color: var(--border2); }
-  .cont-card.sel { border: 2px solid #185fa5; background: var(--blue-bg); }
-  .cont-card.sel .c-name { color: var(--blue-text); }
-  .c-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
-  .c-info { font-size: 11px; color: var(--text2); line-height: 1.5; }
-  .custom-cont-row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; margin-top: 12px; }
-  .custom-cont-row .field { display: flex; flex-direction: column; }
-  .sel-info { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 14px; background: var(--bg2); border-radius: var(--radius); font-size: 13px; flex-wrap: wrap; }
-  .weight-badge { font-size: 12px; padding: 3px 10px; border-radius: 6px; font-weight: 500; }
+.stepper {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; padding-bottom: 0;
+}
+.step-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 22px; border: none; background: none;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+  color: var(--text-light); cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s; white-space: nowrap;
+}
+.step-btn:hover { color: var(--text-mid); }
+.step-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.step-btn.done { color: var(--text-mid); }
+.step-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+  background: var(--border); color: var(--text-light);
+  transition: all 0.2s;
+}
+.step-btn.active .step-num { background: var(--accent); color: #fff; }
+.step-btn.done .step-num { background: #22c55e; color: #fff; }
+.step-arrow { color: var(--border); font-size: 16px; padding: 0 4px; }
 
-  .result-product { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 0.5px solid var(--border); }
-  .result-product:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-  .metric-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
-  .metric { background: var(--bg); border-radius: var(--radius); padding: 8px 10px; text-align: center; }
-  .metric-val { font-size: 18px; font-weight: 500; }
-  .metric-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
-  .prog-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-  .prog-lbl { font-size: 11px; color: var(--text2); margin-bottom: 3px; }
-  .prog-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
-  .prog-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
-  .warn-box { background: var(--warn-bg); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; color: var(--warn-text); display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-  .err-box { background: var(--danger-bg); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; color: var(--danger-text); display: flex; align-items: center; gap: 8px; }
-  .info-row { margin-top: 8px; font-size: 12px; color: var(--text2); padding: 8px 12px; background: var(--bg2); border-radius: var(--radius); }
-  .total-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
-  .total-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
-  .total-val { font-size: 26px; font-weight: 500; }
-  .total-lbl { font-size: 12px; color: var(--text2); margin-top: 3px; }
-  .divider { height: 0.5px; background: var(--border); margin: 1rem 0; }
-  .add-err { display: none; margin-bottom: 10px; }
-  svg.icon { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; vertical-align: -3px; }
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border2); border-top-color: var(--blue-text); border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (max-width: 600px) {
-    .product-row { grid-template-columns: 1fr 1fr; }
-    .metric-grid { grid-template-columns: repeat(3, 1fr); }
-    .total-grid { grid-template-columns: repeat(2, 1fr); }
-    .prog-row { grid-template-columns: 1fr; }
-  }
+.shared-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-bg); border: 1px solid var(--accent-border);
+  border-radius: 20px; padding: 4px 12px; font-size: 12px;
+  color: var(--accent); font-weight: 600;
+  margin: 8px auto 12px; opacity: 0; transition: opacity 0.3s;
+}
+.shared-badge.visible { opacity: 1; }
+
+/* STEP PANELS */
+.step-panel { display: none; }
+.step-panel.active { display: block; }
+
+/* COTIZADOR paso 1 */
+.container { max-width: 880px; margin: 0 auto; padding: 20px 16px 40px; }
+
+.card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 10px; padding: 24px; margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.card-title {
+  font-size: 12px; letter-spacing: 3px; color: var(--accent);
+  font-weight: 700; text-transform: uppercase; margin-bottom: 18px;
+}
+.card-subtitle { font-size: 12px; color: var(--text-dim); margin-top: -12px; margin-bottom: 14px; }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } }
+
+label.field-label { font-size: 12px; color: var(--text-mid); font-weight: 500; display: block; margin-bottom: 5px; }
+
+input[type=number], input[type=text], select {
+  background: var(--input-bg); border: 1px solid var(--input-border);
+  color: var(--text); padding: 10px 12px; border-radius: 7px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px; width: 100%;
+  outline: none; transition: border 0.2s, box-shadow 0.2s;
+}
+input:focus, select:focus {
+  border-color: var(--accent-light);
+  box-shadow: 0 0 0 3px rgba(184,134,11,0.1);
+}
+select {
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+
+.task-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--border-light);
+}
+.task-row:last-child { border-bottom: none; }
+.task-info { flex: 1; min-width: 0; }
+.task-name { font-size: 14px; font-weight: 500; transition: color 0.2s; }
+.task-name.active { color: var(--text); }
+.task-name.inactive { color: var(--text-light); }
+.task-desc { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+
+.task-cant { display: flex; flex-direction: column; gap: 2px; width: 100px; }
+.task-cant-label { font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
+.task-cant input { text-align: right; font-size: 13px; padding: 6px 8px; background: var(--accent-bg); border-color: var(--accent-border); }
+.task-cant input:disabled { opacity: 0.3; background: var(--input-bg); border-color: var(--input-border); }
+
+.task-input { width: 74px; }
+.task-input input { text-align: right; font-size: 13px; padding: 6px 8px; }
+.task-input input:disabled { opacity: 0.35; }
+.task-unit { font-size: 11px; color: var(--text-dim); width: 16px; }
+.task-time { font-size: 12px; color: var(--accent); font-weight: 600; width: 68px; text-align: right; flex-shrink: 0; }
+
+.task-row.fixed-row .task-name { color: var(--text); }
+.fixed-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-right: 2px; }
+
+.toggle {
+  width: 42px; height: 24px; border-radius: 12px; border: 2px solid var(--border);
+  position: relative; cursor: pointer; transition: all 0.2s; flex-shrink: 0; background: var(--input-bg);
+}
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle-knob {
+  width: 16px; height: 16px; border-radius: 8px; position: absolute; top: 2px;
+  transition: left 0.2s, background 0.2s; background: var(--border); left: 2px;
+}
+.toggle.on .toggle-knob { background: #fff; left: 20px; }
+
+.adv-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.adv-icon { color: var(--accent); font-size: 20px; font-weight: 300; }
+
+.btn-generate {
+  width: 100%; padding: 14px; border: none; border-radius: 8px;
+  font-size: 13px; font-family: 'DM Sans', sans-serif; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 20px; transition: all 0.2s; cursor: pointer;
+}
+.btn-generate.enabled { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(139,101,8,0.25); }
+.btn-generate.enabled:hover { background: var(--accent-light); }
+.btn-generate.disabled { background: var(--border); color: var(--text-light); cursor: not-allowed; }
+
+.btn-next-step {
+  width: 100%; padding: 16px; border: none; border-radius: 10px;
+  font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  background: linear-gradient(135deg, var(--blue) 0%, #1d4ed8 100%);
+  color: #fff; margin-top: 8px; margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 4px 12px rgba(24,95,165,0.3);
+  transition: all 0.2s;
+}
+.btn-next-step:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(24,95,165,0.4); }
+.btn-next-step .arrow { font-size: 18px; }
+
+/* Botón terrestre desde paso 1 */
+.btn-next-terr {
+  width: 100%; padding: 16px; border: none; border-radius: 10px;
+  font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+  color: #fff; margin-bottom: 24px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 4px 12px rgba(180,83,9,0.3);
+  transition: all 0.2s;
+}
+.btn-next-terr:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(180,83,9,0.4); }
+
+.results {
+  background: var(--white); border: 1px solid var(--accent-border);
+  border-radius: 12px; padding: 28px; animation: fadeIn 0.4s ease;
+  display: none; box-shadow: 0 2px 12px rgba(139,101,8,0.08);
+}
+.results.visible { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+.results-header { text-align: center; margin-bottom: 22px; }
+.results-tag { font-size: 11px; letter-spacing: 4px; color: var(--accent); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+.results-title { font-family: 'Playfair Display', Georgia, serif; font-size: 26px; font-weight: 400; color: var(--text); }
+.results-client { font-size: 13px; color: var(--text-mid); margin-top: 4px; }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+.stat-box { background: var(--accent-bg); border-radius: 8px; padding: 14px 10px; text-align: center; border: 1px solid var(--accent-border); }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 10px; color: var(--text-mid); letter-spacing: 1px; text-transform: uppercase; margin-top: 3px; }
+
+.breakdown-title { font-size: 11px; letter-spacing: 3px; color: var(--accent); font-weight: 700; text-transform: uppercase; margin-bottom: 10px; }
+.breakdown-wrap { background: var(--white); border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; margin-bottom: 22px; }
+.breakdown-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.breakdown-table th { text-align: left; padding: 10px 12px; color: var(--text-mid); font-weight: 600; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid var(--border); background: var(--bg); }
+.breakdown-table th.r { text-align: right; }
+.breakdown-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-light); }
+.breakdown-table td.r { text-align: right; }
+.breakdown-table td.task-cell { color: var(--text); font-weight: 500; }
+.breakdown-table td.dim { color: var(--text-dim); }
+.breakdown-table td.gold { color: var(--accent); font-weight: 700; }
+.breakdown-table tr:last-child td { border-bottom: none; }
+
+.summary-box { background: var(--accent-bg); border-radius: 8px; border: 1px solid var(--accent-border); padding: 20px; }
+.summary-title { font-size: 11px; letter-spacing: 3px; color: var(--accent); font-weight: 700; text-transform: uppercase; margin-bottom: 14px; }
+.summary-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+.summary-label { font-size: 13px; color: var(--text-mid); }
+.summary-vals { display: flex; gap: 16px; align-items: center; }
+.summary-hours { font-size: 13px; color: var(--text); width: 66px; text-align: right; font-weight: 500; }
+.summary-cost { font-size: 13px; color: var(--accent); font-weight: 700; width: 86px; text-align: right; }
+.summary-total { border-top: 2px solid var(--accent-border); margin-top: 10px; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; }
+.summary-total-label { font-size: 16px; font-weight: 700; }
+.summary-total-hours { font-size: 16px; font-weight: 700; }
+.summary-total-cost { font-size: 24px; color: var(--accent); font-weight: 700; }
+.summary-days { margin-top: 6px; font-size: 12px; color: var(--text-mid); text-align: right; }
+
+/* CUBICAJE AÉREO paso 2 */
+.cub-wrap { max-width: 1020px; margin: 0 auto; padding: 20px 16px 60px; }
+
+.inherited-banner {
+  background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+  border: 1px solid #93c5fd; border-radius: 10px;
+  padding: 14px 18px; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.inherited-banner-icon { font-size: 22px; }
+.inherited-banner-text { flex: 1; }
+.inherited-banner-title { font-size: 13px; font-weight: 600; color: #1d4ed8; margin-bottom: 2px; }
+.inherited-banner-sub { font-size: 12px; color: #3b82f6; }
+.inherited-banner-val { font-size: 28px; font-weight: 700; color: #1d4ed8; }
+
+.panel-top-cub { background:#fff; border-radius:14px 14px 0 0; border:1px solid #e0ded6; border-bottom:none; padding:1.25rem 2rem 0; }
+.app-sub-cub { font-size:12px; color:#888780; margin-bottom:1rem; }
+.cub-tabs { display:flex; border-bottom:1px solid #e0ded6; }
+.cub-tab-btn { padding:9px 18px; background:none; border:none; font-size:13px; color:#888780; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .15s; }
+.cub-tab-btn.active { color:#1a1a18; border-bottom-color:#1a1a18; font-weight:500; }
+.cub-panel { background:#fff; border-radius:0 0 14px 14px; border:1px solid #e0ded6; border-top:none; padding:1.75rem 2rem; display:none; }
+.cub-panel.active { display:block; }
+
+.sl { font-size:10px; color:#888780; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:8px; }
+.pale-spec-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1.5rem; }
+.psb { padding:7px 12px; background:#f5f5f3; border:1px solid #e0ded6; border-radius:8px; font-size:12px; color:#5f5e5a; }
+.psb strong { color:#1a1a18; }
+.cat-sel { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1rem; align-items:center; }
+.cat-sel-lbl { font-size:12px; color:#888780; }
+.cpill { padding:4px 11px; border-radius:20px; border:1px solid #e0ded6; background:#f5f5f3; font-size:12px; cursor:pointer; color:#5f5e5a; transition:all .15s; }
+.cpill:hover { border-color:#185fa5; color:#185fa5; background:#e6f1fb; }
+.cpill.err { border-color:#f0a0a0; color:#a83232; background:#fde8e8; }
+
+.tw { overflow-x:auto; }
+table.cajas { width:100%; border-collapse:collapse; font-size:13px; }
+.cajas thead th { text-align:left; font-size:10px; color:#888780; text-transform:uppercase; letter-spacing:.04em; font-weight:600; padding:6px 7px; border-bottom:1px solid #e0ded6; white-space:nowrap; }
+.cajas tbody tr { border-bottom:1px solid #f5f5f3; }
+.cajas tbody tr:hover { background:#fafaf9; }
+.cajas tbody td { padding:4px 3px; vertical-align:middle; }
+.cajas td input { background:#f5f5f3; border:1px solid #e8e6e0; border-radius:5px; padding:5px 7px; font-size:12px; color:#1a1a18; width:100%; transition:border-color .15s; }
+.cajas td input:focus { outline:none; border-color:#888780; background:#fff; }
+.cajas td input[readonly] { background:#eef5fb; color:#185fa5; border-color:#c5dff8; cursor:default; }
+.cajas td input.inherited-qty { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; font-weight:600; }
+.tn { min-width:68px; } .tdd { min-width:130px; } .tc { text-align:center; }
+.tbadge { font-size:11px; padding:4px 7px; white-space:nowrap; font-weight:500; }
+.ok { color:#15803d; } .warn { color:#ba7517; } .err-c { color:#a83232; }
+.bdel { background:none; border:none; cursor:pointer; color:#ccc; font-size:14px; padding:2px 5px; border-radius:4px; }
+.bdel:hover { color:#e24b4a; }
+.badd { margin-top:8px; padding:6px 13px; border-radius:7px; border:1px dashed #ccc; background:transparent; color:#888780; font-size:12px; cursor:pointer; transition:all .15s; }
+.badd:hover { border-color:#888780; color:#1a1a18; background:#f5f5f3; }
+
+hr.div { border:none; border-top:1px solid #e8e6e0; margin:1.5rem 0; }
+
+.quick-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin-bottom:1.5rem; }
+.qc { background:#f5f5f3; border-radius:8px; padding:10px 12px; }
+.qc-lbl { font-size:10px; color:#888780; text-transform:uppercase; letter-spacing:.03em; margin-bottom:3px; }
+.qc-val { font-size:18px; font-weight:600; color:#1a1a18; }
+.qc-unit { font-size:10px; color:#888780; }
+.qc.blue { background:#dbeafe; } .qc.blue .qc-val { color:#1d4ed8; }
+.qc.green { background:#dcfce7; } .qc.green .qc-val { color:#15803d; }
+.qc.purple { background:#f3e8ff; } .qc.purple .qc-val { color:#7c3aed; }
+.qc.orange { background:#fff7ed; } .qc.orange .qc-val { color:#b45309; }
+
+.pale-desglose { width:100%; border-collapse:collapse; font-size:12px; }
+.pale-desglose thead th { text-align:left; font-size:10px; color:#fff; text-transform:uppercase; letter-spacing:.04em; padding:8px 10px; background:#1a1a18; white-space:nowrap; }
+.pale-desglose thead th:first-child { border-radius:8px 0 0 0; }
+.pale-desglose thead th:last-child { border-radius:0 8px 0 0; }
+.pale-desglose tbody tr { border-bottom:1px solid #f0ede6; }
+.pale-desglose tbody tr:nth-child(even) { background:#fafaf9; }
+.pale-desglose tbody tr:hover { background:#f0f4ff; }
+.pale-desglose tbody td { padding:10px; vertical-align:middle; }
+.pale-desglose tfoot td { padding:10px; font-weight:700; font-size:13px; background:#1a1a18; color:#fff; }
+.pale-desglose tfoot td:first-child { border-radius:0 0 0 8px; }
+.pale-desglose tfoot td:last-child { border-radius:0 0 8px 0; }
+
+.pale-num-big { font-size:16px; font-weight:700; color:#1d4ed8; }
+.pale-dim-sub { font-size:10px; color:#888780; margin-top:2px; }
+.box-chip { display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:500; margin-bottom:3px; }
+.pale-stack-info { font-size:10px; color:#888780; margin-top:3px; }
+.fill-pct { font-size:14px; font-weight:700; margin-bottom:4px; }
+.fill-bar-wrap { width:100%; height:8px; background:#e8e6e0; border-radius:4px; overflow:hidden; }
+.fill-bar { height:100%; border-radius:4px; transition:width .4s; }
+.fill-sub { font-size:10px; color:#888780; margin-top:3px; }
+.vol-cajas-val { font-size:15px; font-weight:700; color:#7c3aed; }
+.vol-cajas-sub { font-size:10px; color:#888780; margin-top:2px; }
+.vol-pale-val { font-size:15px; font-weight:700; color:#185fa5; }
+.vol-pale-sub { font-size:10px; color:#888780; margin-top:2px; }
+.peso-val { font-size:14px; font-weight:600; color:#15803d; }
+.peso-sub { font-size:10px; color:#888780; margin-top:2px; }
+.alt-val { font-size:13px; font-weight:600; color:#1a1a18; }
+.alt-sub { font-size:10px; color:#15803d; margin-top:2px; }
+
+.cot-box { border:2px solid #1d4ed8; border-radius:14px; padding:1.25rem 1.5rem; background:#eff6ff; margin-top:1.5rem; }
+.cot-title { font-size:11px; color:#1d4ed8; text-transform:uppercase; letter-spacing:.06em; font-weight:700; margin-bottom:1rem; }
+.cot-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.cot-item { background:#fff; border-radius:8px; padding:12px 14px; border:1px solid #bfdbfe; text-align:center; }
+.cot-lbl { font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
+.cot-val { font-size:22px; font-weight:700; color:#1d4ed8; }
+.cot-unit { font-size:11px; color:#6b7280; margin-top:2px; }
+
+/* TERRESTRE - cotización */
+.terr-box { border:2px solid var(--terr); border-radius:14px; padding:1.25rem 1.5rem; background:var(--terr-bg); margin-top:1.5rem; }
+.terr-title { font-size:11px; color:var(--terr); text-transform:uppercase; letter-spacing:.06em; font-weight:700; margin-bottom:1rem; }
+.terr-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.terr-item { background:#fff; border-radius:8px; padding:12px 14px; border:1px solid var(--terr-border); text-align:center; }
+.terr-lbl { font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
+.terr-val { font-size:22px; font-weight:700; color:var(--terr); }
+.terr-unit { font-size:11px; color:#6b7280; margin-top:2px; }
+
+.alert-box { margin-top:1rem; }
+.alert { font-size:12px; padding:8px 12px; border-radius:6px; margin-bottom:6px; }
+.alert.warn { color:#92400e; background:#fffbeb; border:1px solid #fcd34d; }
+.alert.err { color:#991b1b; background:#fef2f2; border:1px solid #fca5a5; }
+
+.bcopy { margin-top:1.25rem; padding:10px 18px; border-radius:8px; border:1px solid #d3d1c7; background:transparent; color:#1a1a18; font-size:13px; cursor:pointer; width:100%; }
+.bcopy:hover { background:#f5f5f3; }
+.toast { display:none; margin-top:8px; padding:9px 14px; background:#eaf3de; color:#3b6d11; border-radius:8px; font-size:13px; border:1px solid #c0dd97; }
+.empty-msg { color:#888780; font-size:13px; }
+
+.cat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px; margin-bottom:1.5rem; }
+.ccard { border:1px solid #e0ded6; border-radius:10px; padding:12px 14px; background:#fff; position:relative; }
+.ccard-name { font-size:13px; font-weight:600; margin-bottom:6px; }
+.ccard-info { font-size:12px; color:#888780; line-height:1.7; }
+.ccard-info span { color:#1a1a18; font-weight:500; }
+.ccard-del { position:absolute; top:8px; right:8px; background:none; border:none; color:#ccc; font-size:13px; cursor:pointer; padding:2px 5px; }
+.ccard-del:hover { color:#e24b4a; }
+.ccard-tag { display:inline-block; margin-top:6px; font-size:10px; padding:2px 8px; border-radius:10px; }
+.tag-ok { background:#dcfce7; color:#15803d; } .tag-err { background:#fde8e8; color:#991b1b; }
+
+.form-nueva { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto; gap:8px; align-items:end; padding:14px; background:#f5f5f3; border:1px solid #e0ded6; border-radius:10px; }
+.fld { display:flex; flex-direction:column; gap:3px; }
+.fld label { font-size:10px; color:#888780; text-transform:uppercase; letter-spacing:.04em; }
+.fld input { background:#fff; border:1px solid #e0ded6; border-radius:6px; padding:7px 8px; font-size:12px; color:#1a1a18; width:100%; }
+.fld input:focus { outline:none; border-color:#888780; }
+.bsave { padding:7px 14px; border-radius:7px; border:1px solid #1a1a18; background:#1a1a18; color:#fff; font-size:12px; cursor:pointer; white-space:nowrap; height:32px; }
+.bsave:hover { opacity:.8; }
+
+.btn-back { padding:10px 20px; border-radius:8px; border:1px solid var(--border); background:transparent; font-size:13px; font-family:'DM Sans',sans-serif; color:var(--text-mid); cursor:pointer; margin-bottom:16px; display:inline-flex; align-items:center; gap:6px; }
+.btn-back:hover { background:var(--bg); }
+
+.btn-export-pdf {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 14px 20px; border: none; border-radius: 10px;
+  font-size: 13px; font-family: 'DM Sans', sans-serif; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  background: linear-gradient(135deg, #1a1a1a 0%, #3a3a3a 100%);
+  color: #fff; margin-top: 12px; margin-bottom: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  transition: all 0.2s;
+}
+.btn-export-pdf:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+.btn-export-pdf svg { flex-shrink: 0; }
+.export-note { font-size: 11px; color: var(--text-dim); text-align: center; margin-bottom: 20px; }
+
+.btn-export-cub {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 11px 18px; border: 2px solid #1a1a18; border-radius: 8px;
+  font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+  background: #1a1a18; color: #fff; margin-top: 8px;
+  transition: all 0.2s;
+}
+.btn-export-cub:hover { background: #333; }
+
+/* ════════════════════════════════════
+   PASO 3 — COTIZACIÓN TERRESTRE
+════════════════════════════════════ */
+.terr-wrap { max-width: 1020px; margin: 0 auto; padding: 20px 16px 60px; }
+
+/* banner heredado terrestre */
+.inherited-banner.terr {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border-color: #fdba74;
+}
+.inherited-banner.terr .inherited-banner-title { color: var(--terr); }
+.inherited-banner.terr .inherited-banner-sub { color: #d97706; }
+.inherited-banner.terr .inherited-banner-val { color: var(--terr); }
+
+/* header panel terrestre */
+.panel-top-terr { background:#fff; border-radius:14px 14px 0 0; border:1px solid #e0ded6; border-bottom:none; padding:1.25rem 2rem 0; }
+
+/* spec bar terrestre */
+.psb.terr-spec { background:#fff7ed; border-color:#fed7aa; color:#92400e; }
+.psb.terr-spec strong { color:#b45309; }
+
+/* tabla cajas terrestre (reutiliza estilos aéreo con override) */
+.cajas.terr thead th { border-bottom-color: #fed7aa; }
+.cajas.terr td input.inherited-qty { background:#fff7ed; color:#b45309; border-color:#fdba74; }
+
+/* quick cards terrestre */
+.qc.terr { background:#fff7ed; } .qc.terr .qc-val { color:#b45309; }
+
+/* pale desglose terrestre */
+.pale-desglose.terr thead th { background: #92400e; }
+.pale-desglose.terr tfoot td { background: #92400e; }
+.pale-num-big.terr { color: #b45309; }
+
+/* cot box terrestre */
+.cot-box.terr { border-color: var(--terr); background: var(--terr-bg); }
+.cot-box.terr .cot-title { color: var(--terr); }
+.cot-box.terr .cot-item { border-color: var(--terr-border); }
+.cot-box.terr .cot-val { color: var(--terr); }
+
+/* botón copiar terrestre */
+.bcopy.terr { border-color: var(--terr-border); }
+.toast.terr { background:#fff7ed; color:#92400e; border-color:#fed7aa; }
+
+/* btn export terrestre */
+.btn-export-cub.terr { border-color: var(--terr); background: var(--terr); }
+.btn-export-cub.terr:hover { background: var(--terr-dark); }
+
+@media(max-width:640px){
+  .form-nueva { grid-template-columns:1fr 1fr; }
+  .cub-panel { padding:1.25rem; }
+  .panel-top-cub { padding:1rem 1.25rem 0; }
+  .cot-grid, .terr-grid { grid-template-columns:1fr 1fr; }
+  .step-btn span:not(.step-num) { display:none; }
+}
+@media print {
+  .btn-generate, .toggle, .btn-next-step, .btn-back, .app-header, .btn-export-pdf, .btn-export-cub, .btn-next-terr { display:none; }
+  .results { display:block !important; }
+  body { background:#fff; }
+}
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="topbar-icon">
-    <svg viewBox="0 0 24 24"><path d="M21 8V21H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+<!-- HEADER CON STEPPER -->
+<div class="app-header">
+  <div class="app-header-tag">Logística de Tabaco</div>
+  <h1>Gestión de Pedidos</h1>
+  <div class="stepper">
+    <button class="step-btn active" id="stepper-1" onclick="goToStep(1)">
+      <span class="step-num">1</span>
+      <span>Puros &amp; Manipulado</span>
+    </button>
+    <span class="step-arrow">›</span>
+    <button class="step-btn" id="stepper-2" onclick="goToStep(2)">
+      <span class="step-num">2</span>
+      <span>Cubicaje Aéreo</span>
+    </button>
+    <span class="step-arrow">›</span>
+    <button class="step-btn" id="stepper-3" onclick="goToStep(3)">
+      <span class="step-num">3</span>
+      <span>Cotización Terrestre</span>
+    </button>
   </div>
-  <h1>Calculadora de Contenedores</h1>
-  <div class="topbar-status" id="topbar-status"></div>
+  <div class="shared-badge" id="sharedBadge">
+    📦 <span id="sharedBadgeText">0 cajas transferidas al cubicaje</span>
+  </div>
 </div>
 
+<!-- ═══════════════════════════
+     PASO 1: COTIZADOR PUROS
+═══════════════════════════ -->
+<div class="step-panel active" id="step-1">
 <div class="container">
 
-  <!-- input oculto para compatibilidad interna -->
-  <input type="url" id="api-url" style="display:none">
-  <div id="url-status" style="display:none"></div>
-
-  <!-- BD CARGADA -->
-  <div class="section" id="db-section" style="display:none">
-    <div class="section-title">
-      <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-      Base de datos: TABLA_MEDIDAS_PUROS
-      <span id="db-badge" class="badge badge-warn">cargando...</span>
-      <button class="btn btn-ghost" onclick="recargarDB()" style="margin-left:auto">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Actualizar
-      </button>
-    </div>
-    <div id="db-loading" style="font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px;padding:8px 0">
-      <span class="spinner"></span> Leyendo datos desde Drive...
-    </div>
-    <div id="db-wrap" class="db-wrap" style="display:none">
-      <table class="db-table">
-        <colgroup><col style="width:14%"><col style="width:30%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:20%"></colgroup>
-        <thead><tr><th>Referencia</th><th>Descripción</th><th>Largo mm</th><th>Ancho mm</th><th>Alto mm</th><th>Peso kg</th></tr></thead>
-        <tbody id="db-rows"></tbody>
-      </table>
+  <div class="card">
+    <div class="card-title">Datos del Pedido</div>
+    <div class="form-grid">
+      <div>
+        <label class="field-label">Fabricante</label>
+        <select id="fabricante">
+          <option>Joya de Nicaragua</option>
+          <option>Drew Estate</option>
+        </select>
+      </div>
+      <div><label class="field-label">País Destino</label><input type="text" id="pais" placeholder="Ej: Polonia"></div>
+      <div><label class="field-label">Cliente</label><input type="text" id="cliente" placeholder="Nombre del cliente"></div>
+      <div><label class="field-label">Nº Referencias</label><input type="number" id="numRefs" placeholder="0" min="0"></div>
+      <div><label class="field-label">Cantidad de Puros</label><input type="number" id="numPuros" placeholder="0" min="0"></div>
+      <div>
+        <label class="field-label">Cantidad de Cajas (Unidades Venta)</label>
+        <input type="number" id="numCajas" placeholder="0" min="0">
+      </div>
     </div>
   </div>
 
-  <!-- PRODUCTOS -->
-  <div class="section">
-    <div class="section-title">
-      <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-      Añadir productos
-    </div>
-    <div class="product-row">
-      <div class="autocomplete">
-        <label>Referencia o descripción</label>
-        <input type="text" id="prod-ref" placeholder="Buscar en base de datos..." oninput="showAC()" onkeydown="handleKey(event)" autocomplete="off">
-        <div id="ac-list" class="ac-list" style="display:none"></div>
-      </div>
-      <div>
-        <label>Cantidad (uds.)</label>
-        <input type="number" id="prod-qty" value="100" min="1">
-      </div>
-      <div>
-        <label>Medidas detectadas</label>
-        <input type="text" id="found-dims" readonly placeholder="—">
-      </div>
-      <div>
-        <label style="visibility:hidden">a</label>
-        <button class="btn" onclick="addProduct()">
-          <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Añadir
-        </button>
-      </div>
-    </div>
-    <div id="add-err" class="err-box add-err">
-      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span id="add-err-msg"></span>
-    </div>
-    <div id="product-list" class="product-list"></div>
+  <div class="card">
+    <div class="card-title">Manipulación — Por Puro</div>
+    <p class="card-subtitle">Tareas fijas activadas. Tiempo en segundos por unidad.</p>
+    <div id="puro-fixed-tasks"></div>
+
+    <div class="card-title" style="margin-top:24px">Manipulación Estándar</div>
+    <p class="card-subtitle">Activa las tareas que aplican e introduce la cantidad de puros.</p>
+    <div id="puro-tasks"></div>
+
+    <div class="card-title" style="margin-top:24px">Manipulación — Por Caja</div>
+    <p class="card-subtitle">Tiempo en segundos por caja / unidad de venta. Cantidad de cajas por tarea.</p>
+    <div id="caja-tasks"></div>
+
+    <div class="card-title" style="margin-top:24px">TTT Mastercase</div>
+    <p class="card-subtitle">Unidades por caja en mastercase.</p>
+    <div id="mastercase-tasks"></div>
   </div>
 
-  <!-- CONTENEDORES -->
-  <div class="section">
-    <div class="section-title">
-      <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-      Tipo de contenedor
+  <div class="card">
+    <div class="card-title">Tareas Fijas</div>
+    <div id="fixed-tasks"></div>
+  </div>
+
+  <div class="card">
+    <div class="adv-header" onclick="toggleAdvanced()">
+      <div class="card-title" style="margin-bottom:0">Parámetros de Coste</div>
+      <span class="adv-icon" id="adv-icon">+</span>
     </div>
-    <div class="container-grid" id="container-grid"></div>
-    <div class="custom-cont-row">
-      <div class="field" style="flex:1;min-width:160px">
-        <label>Nombre personalizado</label>
-        <input type="text" id="custom-name" placeholder="Ej: Caja especial">
+    <div id="adv-body" style="display:none; margin-top:16px;">
+      <div class="form-grid">
+        <div><label class="field-label">Coste/hora manipulación (€)</label><input type="number" id="costPerHour" value="15" step="0.5"></div>
+        <div><label class="field-label">Coste advertencias imprenta (€)</label><input type="number" id="costAdv" value="150" step="10"></div>
       </div>
-      <div class="field"><label>Largo (mm)</label><input type="number" id="c-largo" value="500" style="width:88px"></div>
-      <div class="field"><label>Ancho (mm)</label><input type="number" id="c-ancho" value="300" style="width:88px"></div>
-      <div class="field"><label>Alto (mm)</label><input type="number" id="c-alto" value="200" style="width:88px"></div>
-      <div class="field"><label>Peso máx. (kg)</label><input type="number" id="c-pesomax" value="25" min="0" step="0.5" style="width:88px"></div>
-      <div class="field">
-        <label style="visibility:hidden">a</label>
-        <button class="btn" onclick="addCustomContainer()">
-          <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Añadir
-        </button>
-      </div>
-    </div>
-    <div id="sel-info" class="sel-info" style="display:none">
-      <span style="color:var(--text2)">Seleccionado:</span>
-      <span id="sel-name" style="font-weight:500"></span>
-      <span id="sel-vol" style="color:var(--text2);font-size:12px"></span>
-      <span id="sel-w-badge" class="weight-badge"></span>
     </div>
   </div>
 
-  <!-- CALCULAR -->
-  <button class="btn btn-primary" onclick="calculate()">
-    <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="13" y2="14"/><line x1="16" y1="17" x2="16" y2="22"/><line x1="13.5" y1="19.5" x2="18.5" y2="19.5"/></svg>
-    Calcular contenedores necesarios
+  <button class="btn-generate disabled" id="btnGenerate" onclick="generate()">Generar Cotización</button>
+
+  <div class="results" id="results">
+    <div class="results-header">
+      <div class="results-tag">Cotización Estimada</div>
+      <h3 class="results-title" id="res-title"></h3>
+      <div class="results-client" id="res-client"></div>
+    </div>
+    <div class="stats">
+      <div class="stat-box"><div class="stat-value" id="res-puros">0</div><div class="stat-label">Puros</div></div>
+      <div class="stat-box"><div class="stat-value" id="res-cajas">0</div><div class="stat-label">Cajas</div></div>
+      <div class="stat-box"><div class="stat-value" id="res-refs">0</div><div class="stat-label">Referencias</div></div>
+    </div>
+    <div id="breakdown-section"></div>
+    <div class="summary-box" id="summary-box"></div>
+
+    <button class="btn-export-pdf" onclick="exportarPDFCompleto()" style="margin-top:24px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      Exportar Informe PDF
+    </button>
+    <div class="export-note">Incluye cotización de manipulado + datos de cubicaje aéreo y terrestre si están disponibles</div>
+  </div>
+
+  <button class="btn-next-step" onclick="irACubicaje()">
+    <span>Continuar a Cubicaje Aéreo</span>
+    <span class="arrow">→</span>
+  </button>
+  <button class="btn-next-terr" onclick="irATerrestre()">
+    <span>🚛 Continuar a Cotización Terrestre</span>
+    <span class="arrow">→</span>
   </button>
 
-  <!-- RESULTADOS -->
-  <div id="results" style="display:none; margin-top:16px">
-    <div class="section">
-      <div class="section-title">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        Resultados
-      </div>
-      <div id="results-inner"></div>
+</div>
+</div>
+
+<!-- ═══════════════════════════
+     PASO 2: CUBICAJE AÉREO
+═══════════════════════════ -->
+<div class="step-panel" id="step-2">
+<div class="cub-wrap">
+
+  <button class="btn-back" onclick="goToStep(1)">← Volver a Puros &amp; Manipulado</button>
+
+  <div class="inherited-banner" id="inheritedBanner" style="display:none">
+    <div class="inherited-banner-icon">📦</div>
+    <div class="inherited-banner-text">
+      <div class="inherited-banner-title">Cajas transferidas desde el cotizador</div>
+      <div class="inherited-banner-sub">El campo cantidad se ha completado automáticamente</div>
     </div>
+    <div class="inherited-banner-val" id="inheritedVal">0</div>
+  </div>
+
+  <div class="panel-top-cub">
+    <div class="app-sub-cub">Desglose palé a palé · Volumen cajas · Volumen palé · Cotización aerolínea</div>
+    <div class="cub-tabs">
+      <button class="cub-tab-btn active" onclick="showCubTab('pedido')">Pedido</button>
+      <button class="cub-tab-btn" onclick="showCubTab('catalogo')">Catálogo de cajas</button>
+    </div>
+  </div>
+
+  <div class="cub-panel active" id="cub-tab-pedido">
+    <div class="pale-spec-bar">
+      <span class="psb">📦 Palé europeo <strong>120 × 80 cm</strong></span>
+      <span class="psb">📏 Altura total <strong>160 cm</strong> · Carga útil <strong>145 cm</strong></span>
+      <span class="psb">📐 Vol. palé <strong>1,536 m³</strong> (1,20×0,80×1,60)</span>
+      <span class="psb">⚖️ Peso máx. <strong>1.500 kg</strong>/palé</span>
+    </div>
+
+    <div class="sl">Añadir del catálogo</div>
+    <div class="cat-sel" id="catSel"><span class="empty-msg">No hay cajas en el catálogo aún.</span></div>
+
+    <div class="sl" style="margin-top:1rem">Cajas del pedido</div>
+    <div class="tw">
+      <table class="cajas">
+        <thead><tr>
+          <th>Descripción</th>
+          <th>Largo (cm)</th><th>Ancho (cm)</th><th>Alto (cm)</th>
+          <th>Peso/caja (kg)</th><th>Cantidad</th>
+          <th>Caben/palé</th><th>Pisos</th><th>Palés</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="cajasBody"></tbody>
+      </table>
+    </div>
+    <button class="badd" onclick="addRow()">+ Añadir caja manual</button>
+
+    <hr class="div">
+    <div class="sl">Resumen global</div>
+    <div class="quick-cards" id="quickCards"></div>
+    <div class="sl">Desglose palé a palé</div>
+    <div class="tw"><table class="pale-desglose" id="desgloseTable"></table></div>
+    <div class="alert-box" id="alertBox"></div>
+    <div class="cot-box">
+      <div class="cot-title">📋 Datos para cotización aérea</div>
+      <div class="cot-grid" id="cotGrid"></div>
+    </div>
+    <button class="bcopy" onclick="copiarResumen()">📋 Copiar resumen para cotización aérea</button>
+    <div class="toast" id="toast">✓ Resumen copiado al portapapeles</div>
+
+    <button class="btn-export-cub" onclick="exportarPDFCompleto()" style="margin-top:16px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      Exportar Informe PDF Completo
+    </button>
+
+    <!-- Botón ir a terrestre desde aéreo -->
+    <button class="btn-next-terr" onclick="irATerrestre()" style="margin-top:12px">
+      <span>🚛 Ver Cotización Terrestre</span>
+      <span class="arrow">→</span>
+    </button>
+  </div>
+
+  <div class="cub-panel" id="cub-tab-catalogo">
+    <h2 style="font-size:17px;font-weight:500;margin-bottom:.2rem">Catálogo de cajas</h2>
+    <p style="font-size:13px;color:#888780;margin-bottom:1.5rem">Guarda tus tipos de caja. Se almacenan en este navegador permanentemente.</p>
+    <div class="sl">Nueva caja</div>
+    <div class="form-nueva">
+      <div class="fld"><label>Nombre</label><input type="text" id="nc-n" placeholder="Ej: Caja L export"></div>
+      <div class="fld"><label>Largo (cm)</label><input type="number" id="nc-l" min="1" placeholder="0"></div>
+      <div class="fld"><label>Ancho (cm)</label><input type="number" id="nc-a" min="1" placeholder="0"></div>
+      <div class="fld"><label>Alto (cm)</label><input type="number" id="nc-h" min="1" placeholder="0"></div>
+      <div class="fld"><label>Tara (kg)</label><input type="number" id="nc-t" min="0" step=".1" placeholder="0"></div>
+      <div class="fld"><label>Peso carga (kg)</label><input type="number" id="nc-p" min=".1" step=".1" placeholder="0"></div>
+      <button class="bsave" onclick="guardarCaja()">Guardar</button>
+    </div>
+    <div class="sl" style="margin-top:1.5rem">Cajas guardadas</div>
+    <div class="cat-grid" id="catGrid"><p class="empty-msg">Aún no hay cajas guardadas.</p></div>
   </div>
 
 </div>
+</div>
 
+<!-- ═══════════════════════════
+     PASO 3: COTIZACIÓN TERRESTRE
+═══════════════════════════ -->
+<div class="step-panel" id="step-3">
+<div class="terr-wrap">
+
+  <button class="btn-back" onclick="goToStep(1)">← Volver a Puros &amp; Manipulado</button>
+
+  <!-- Banner cajas heredadas terrestre -->
+  <div class="inherited-banner terr" id="inheritedBannerTerr" style="display:none">
+    <div class="inherited-banner-icon">🚛</div>
+    <div class="inherited-banner-text">
+      <div class="inherited-banner-title">Cajas transferidas desde el cotizador</div>
+      <div class="inherited-banner-sub">El campo cantidad se ha completado automáticamente</div>
+    </div>
+    <div class="inherited-banner-val" id="inheritedValTerr">0</div>
+  </div>
+
+  <div class="panel-top-terr">
+    <div class="app-sub-cub">Palé 120×80 cm · Altura útil 165 cm (180 cm total − 15 cm palé) · Desglose palé a palé · Cotización transporte terrestre</div>
+    <div class="cub-tabs">
+      <button class="cub-tab-btn active" onclick="showTerrTab('pedido')">Pedido</button>
+      <button class="cub-tab-btn" onclick="showTerrTab('catalogo')">Catálogo de cajas</button>
+    </div>
+  </div>
+
+  <!-- PEDIDO TERRESTRE -->
+  <div class="cub-panel active" id="terr-tab-pedido">
+    <div class="pale-spec-bar">
+      <span class="psb terr-spec">🚛 Palé europeo <strong>120 × 80 cm</strong></span>
+      <span class="psb terr-spec">📏 Altura total <strong>180 cm</strong> · Palé <strong>15 cm</strong> · Carga útil <strong>165 cm</strong></span>
+      <span class="psb terr-spec">📐 Vol. palé <strong>1,728 m³</strong> (1,20×0,80×1,80)</span>
+      <span class="psb terr-spec">⚖️ Peso máx. <strong>1.500 kg</strong>/palé</span>
+    </div>
+
+    <div class="sl">Añadir del catálogo</div>
+    <div class="cat-sel" id="terrCatSel"><span class="empty-msg">No hay cajas en el catálogo aún.</span></div>
+
+    <div class="sl" style="margin-top:1rem">Cajas del pedido</div>
+    <div class="tw">
+      <table class="cajas terr">
+        <thead><tr>
+          <th>Descripción</th>
+          <th>Largo (cm)</th><th>Ancho (cm)</th><th>Alto (cm)</th>
+          <th>Peso/caja (kg)</th><th>Cantidad</th>
+          <th>Caben/palé</th><th>Pisos</th><th>Palés</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="terrCajasBody"></tbody>
+      </table>
+    </div>
+    <button class="badd" onclick="addRowTerr()">+ Añadir caja manual</button>
+
+    <hr class="div">
+    <div class="sl">Resumen global</div>
+    <div class="quick-cards" id="terrQuickCards"></div>
+    <div class="sl">Desglose palé a palé</div>
+    <div class="tw"><table class="pale-desglose terr" id="terrDesgloseTable"></table></div>
+    <div class="alert-box" id="terrAlertBox"></div>
+
+    <div class="cot-box terr">
+      <div class="cot-title">🚛 Datos para cotización terrestre</div>
+      <div class="terr-grid" id="terrCotGrid"></div>
+    </div>
+    <button class="bcopy terr" onclick="copiarResumenTerr()">📋 Copiar resumen para cotización terrestre</button>
+    <div class="toast terr" id="terrToast">✓ Resumen copiado al portapapeles</div>
+
+    <button class="btn-export-cub terr" onclick="exportarPDFCompleto()" style="margin-top:16px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      Exportar Informe PDF Completo
+    </button>
+  </div>
+
+  <!-- CATÁLOGO TERRESTRE (comparte el mismo catálogo) -->
+  <div class="cub-panel" id="terr-tab-catalogo">
+    <h2 style="font-size:17px;font-weight:500;margin-bottom:.2rem">Catálogo de cajas</h2>
+    <p style="font-size:13px;color:#888780;margin-bottom:1.5rem">Mismo catálogo compartido con el cubicaje aéreo.</p>
+    <div class="sl">Nueva caja</div>
+    <div class="form-nueva">
+      <div class="fld"><label>Nombre</label><input type="text" id="tnc-n" placeholder="Ej: Caja L export"></div>
+      <div class="fld"><label>Largo (cm)</label><input type="number" id="tnc-l" min="1" placeholder="0"></div>
+      <div class="fld"><label>Ancho (cm)</label><input type="number" id="tnc-a" min="1" placeholder="0"></div>
+      <div class="fld"><label>Alto (cm)</label><input type="number" id="tnc-h" min="1" placeholder="0"></div>
+      <div class="fld"><label>Tara (kg)</label><input type="number" id="tnc-t" min="0" step=".1" placeholder="0"></div>
+      <div class="fld"><label>Peso carga (kg)</label><input type="number" id="tnc-p" min=".1" step=".1" placeholder="0"></div>
+      <button class="bsave" onclick="guardarCajaTerr()">Guardar</button>
+    </div>
+    <div class="sl" style="margin-top:1.5rem">Cajas guardadas</div>
+    <div class="cat-grid" id="terrCatGrid"><p class="empty-msg">Aún no hay cajas guardadas.</p></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══════════════════════════════
+     JAVASCRIPT UNIFICADO
+═══════════════════════════════ -->
 <script>
-const STORAGE_KEY = 'calculadora_api_url';
-const API_URL_FIJA = 'https://script.google.com/macros/s/AKfycbxed1C4GiRDBEfe9DHIR3dI04qCo3xkVAV0Y2TvcpcXOUCfJEWVFfxDPc25yNuFZ10X/exec';
-let db = [];
-let products = [];
-let containers = [
-  { name: "Gaveta 600×400×320", largo: 600, ancho: 400, alto: 320, pesoMax: 20 },
-  { name: "Caja 400×300×250", largo: 400, ancho: 300, alto: 250, pesoMax: 15 },
-  { name: "Palé europeo 1200×800×1000", largo: 1200, ancho: 800, alto: 1000, pesoMax: 500 },
-  { name: "Contenedor 800×600×400", largo: 800, ancho: 600, alto: 400, pesoMax: 50 },
-  { name: "Caja pequeña 300×200×150", largo: 300, ancho: 200, alto: 150, pesoMax: 8 }
+// ═══════════════════════════════════════
+// ESTADO COMPARTIDO
+// ═══════════════════════════════════════
+let sharedCajas = 0;
+
+let pdfData = {
+  cotizacion: null,
+  cubicaje: null,
+  terrestre: null
+};
+
+// ═══════════════════════════════════════
+// NAVEGACIÓN POR PASOS
+// ═══════════════════════════════════════
+function goToStep(n) {
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('step-'+n).classList.add('active');
+  document.querySelectorAll('.step-btn').forEach((b,i) => {
+    b.classList.remove('active','done');
+    if(i+1 === n) b.classList.add('active');
+    else if(i+1 < n) b.classList.add('done');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function irACubicaje() {
+  const numCajas = gv('numCajas');
+  sharedCajas = numCajas;
+  const badge = document.getElementById('sharedBadge');
+  const badgeText = document.getElementById('sharedBadgeText');
+  if(numCajas > 0) {
+    badgeText.textContent = numCajas + ' cajas transferidas al cubicaje';
+    badge.classList.add('visible');
+    document.getElementById('inheritedBanner').style.display = 'flex';
+    document.getElementById('inheritedVal').textContent = numCajas;
+    syncCajasAlCubicaje(numCajas);
+  }
+  goToStep(2);
+}
+
+function irATerrestre() {
+  const numCajas = gv('numCajas');
+  sharedCajas = numCajas;
+  const badge = document.getElementById('sharedBadge');
+  const badgeText = document.getElementById('sharedBadgeText');
+  if(numCajas > 0) {
+    badgeText.textContent = numCajas + ' cajas transferidas';
+    badge.classList.add('visible');
+    document.getElementById('inheritedBannerTerr').style.display = 'flex';
+    document.getElementById('inheritedValTerr').textContent = numCajas;
+    syncCajasAlTerrestre(numCajas);
+  }
+  goToStep(3);
+}
+
+function syncCajasAlCubicaje(n) {
+  const rows = document.querySelectorAll('#cajasBody tr');
+  if(rows.length > 0) {
+    const cantInput = rows[0].querySelectorAll('input')[5];
+    if(cantInput) { cantInput.value = n; cantInput.classList.add('inherited-qty'); calc(); }
+  }
+}
+
+function syncCajasAlTerrestre(n) {
+  const rows = document.querySelectorAll('#terrCajasBody tr');
+  if(rows.length > 0) {
+    const cantInput = rows[0].querySelectorAll('input')[5];
+    if(cantInput) { cantInput.value = n; cantInput.classList.add('inherited-qty'); calcTerr(); }
+  }
+}
+
+// ═══════════════════════════════════════
+// COTIZADOR — DATOS PASO 1
+// ═══════════════════════════════════════
+const FIXED_PURO_TASKS = [
+  { id:"preparar",     name:"Preparar Pedido",    desc:"Desubicar y llevar mercancía",        time:1.88 },
+  { id:"ttt_salida",   name:"TTT Salida",           desc:"Realizar TTT salida pedido completo", time:0.1  },
+  { id:"precinto_seg", name:"Precinto Seguridad",   desc:"Precintar con precinto de seguridad", time:0.47 },
 ];
-let selCont = 0;
+const PURO_OPT_TASKS = [
+  { id:"precinta_puro", name:"Precinta al Puro",  desc:"Pegar precinta con pegamento al puro", unit:"puro", time:26 },
+  { id:"ttt_puro",      name:"TTT al Puro",        desc:"Pegar TTT al puro + colocar en caja", unit:"puro", time:5  },
+  { id:"pictoria_puro", name:"Pictoria Puro",      desc:"Advertencia sanitaria al puro",        unit:"puro", time:8  },
+  { id:"imprimir_ttt",  name:"Imprimir TTT",       desc:"Imprimir TTT puro a puro + TTT caja", unit:"puro", time:4  },
+];
+const CAJA_TASKS = [
+  { id:"ttt_caja",        name:"TTT Caja",             desc:"Advertencia sanitaria a la caja",   unit:"caja", time:10, cantLabel:"Unidades caja" },
+  { id:"ttt_a_caja",      name:"TTT a la Caja",         desc:"Pegar TTT a la caja",                unit:"caja", time:4,  cantLabel:"Unidades caja" },
+  { id:"sacar_puros",     name:"Sacar Puros",            desc:"Sacar puros de la caja",             unit:"caja", time:4,  cantLabel:"Unidades caja" },
+  { id:"quitar_plastico", name:"Quitar Plástico",       desc:"Quitar plástico de la caja",         unit:"caja", time:6,  cantLabel:"Unidades caja" },
+  { id:"plastificar",     name:"Plastificar",            desc:"Volver a plastificar la caja",       unit:"caja", time:30, cantLabel:"Unidades caja" },
+  { id:"precinta_caja",   name:"Precinta Caja",         desc:"Pegar precinta a la caja",           unit:"caja", time:8,  cantLabel:"Unidades caja" },
+  { id:"etiquetas_esp",   name:"Etiquetas Especiales",  desc:"Etiquetas especiales adicionales",    unit:"caja", time:12, cantLabel:"Unidades caja" },
+];
+const MASTERCASE_TASKS = [
+  { id:"mastercases", name:"Meter en Mastercases",  desc:"Meter unidad de venta en mastercases",  unit:"caja", time:1.5, cantLabel:"Unidades caja" },
+  { id:"ttt_master",  name:"TTT Mastercase",         desc:"Agregar TTT unidad venta a mastercase", unit:"caja", time:4,   cantLabel:"Unidades caja" },
+];
+const FIXED = [
+  { id:"doc_aduanera", name:"Documentación Aduanera",          hours:1 },
+  { id:"advertencias", name:"Diseño Advertencias Sanitarias",  hours:2 },
+];
+const S = { tasks:{}, times:{}, cantidades:{}, fixed:{}, fixedH:{} };
 
-// ── Al cargar la página, conectar automáticamente ──
-window.addEventListener('load', () => {
-  renderContainers();
-  cargarDatos();
-});
+function fmtTime(s) {
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=Math.round(s%60);
+  if(h>0) return h+'h '+m+'m'; if(m>0) return m+'m '+sec+'s'; return sec+'s';
+}
+function numES(n){ return n.toLocaleString('es-ES'); }
+function gv(id){ return parseFloat(document.getElementById(id).value)||0; }
+function gs(id){ return document.getElementById(id).value.trim(); }
 
-function cargarDatos() {
-  // Mostrar estado de carga
-  document.getElementById('db-section').style.display = 'block';
-  document.getElementById('db-loading').style.display = 'flex';
-  document.getElementById('db-wrap').style.display = 'none';
-  document.getElementById('db-badge').textContent = 'cargando...';
-  document.getElementById('db-badge').className = 'badge badge-warn';
-  document.getElementById('topbar-status').innerHTML = '<span class="badge badge-warn">⏳ Conectando con Drive...</span>';
+function createToggle(id, onChange) {
+  const btn = document.createElement('button');
+  btn.className = 'toggle'; btn.setAttribute('type','button');
+  btn.innerHTML = '<div class="toggle-knob"></div>';
+  btn.onclick = () => { const on = btn.classList.toggle('on'); onChange(on); };
+  return btn;
+}
 
-  // Limpiar script anterior
-  const old = document.getElementById('jsonp-script');
-  if (old) old.remove();
-  if (window._cb) delete window._cb;
+function renderFixedPuroTasks(container) {
+  FIXED_PURO_TASKS.forEach(t => {
+    S.tasks[t.id]=true; S.times[t.id]=t.time; S.cantidades[t.id]=0;
+    const row=document.createElement('div'); row.className='task-row fixed-row';
+    const dot=document.createElement('div'); dot.className='fixed-dot';
+    const info=document.createElement('div'); info.className='task-info';
+    info.innerHTML='<div class="task-name active">'+t.name+'</div><div class="task-desc">'+t.desc+'</div>';
+    const inp=document.createElement('div'); inp.className='task-input';
+    const input=document.createElement('input');
+    input.type='number'; input.step='0.1'; input.value=t.time;
+    input.onchange=()=>{ S.times[t.id]=parseFloat(input.value)||0; };
+    inp.appendChild(input);
+    const unit=document.createElement('span'); unit.className='task-unit'; unit.textContent='s';
+    row.append(dot,info,inp,unit); container.appendChild(row);
+  });
+}
 
-  // Timeout de 12 segundos
-  const timer = setTimeout(() => {
-    if (!window._cb) return;
-    delete window._cb;
-    const s = document.getElementById('jsonp-script');
-    if (s) s.remove();
-    mostrarError('Sin respuesta del servidor. Inténtalo de nuevo.');
-  }, 12000);
-
-  // Callback JSONP
-  window._cb = function(data) {
-    clearTimeout(timer);
-    delete window._cb;
-    const s = document.getElementById('jsonp-script');
-    if (s) s.remove();
-
-    if (!data || data.error) {
-      mostrarError('Error del script: ' + (data ? data.error : 'sin datos'));
-      return;
+function renderWithCant(container, tasks, isFixed) {
+  tasks.forEach(t => {
+    S.cantidades[t.id]=0;
+    const row=document.createElement('div'); row.className='task-row';
+    let toggleEl=null;
+    if(!isFixed) {
+      toggleEl=createToggle(t.id, on => {
+        S.tasks[t.id]=on;
+        row.querySelector('.task-name').className='task-name '+(on?'active':'inactive');
+        row.querySelector('.task-cant input').disabled=!on;
+        row.querySelector('.task-input input').disabled=!on;
+        updateBtn();
+      });
     }
-    if (!Array.isArray(data.productos) || data.productos.length === 0) {
-      mostrarError('No se encontraron productos en la hoja de cálculo.');
-      return;
-    }
+    const info=document.createElement('div'); info.className='task-info';
+    info.innerHTML='<div class="task-name inactive">'+t.name+'</div><div class="task-desc">'+t.desc+'</div>';
+    const cant=document.createElement('div'); cant.className='task-cant';
+    cant.innerHTML='<span class="task-cant-label">'+(t.cantLabel||'Cantidad puros')+'</span>';
+    const cantInput=document.createElement('input');
+    cantInput.type='number'; cantInput.min='0'; cantInput.placeholder='0';
+    cantInput.disabled=!isFixed; cantInput.style.width='100%';
+    cantInput.oninput=()=>{ S.cantidades[t.id]=parseFloat(cantInput.value)||0; };
+    cant.appendChild(cantInput);
+    const inp=document.createElement('div'); inp.className='task-input';
+    const input=document.createElement('input');
+    input.type='number'; input.step='0.1'; input.value=t.time; input.disabled=!isFixed;
+    input.onchange=()=>{ S.times[t.id]=parseFloat(input.value)||0; };
+    inp.appendChild(input);
+    const unit=document.createElement('span'); unit.className='task-unit'; unit.textContent='s';
+    if(toggleEl) row.append(toggleEl); row.append(info,cant,inp,unit);
+    container.appendChild(row); S.times[t.id]=t.time;
+  });
+}
 
-    db = data.productos;
-    renderDB();
-    document.getElementById('topbar-status').innerHTML = `<span class="badge badge-success">✓ Conectado · ${db.length} productos</span>`;
+function renderFixed(container) {
+  FIXED.forEach(ft => {
+    const row=document.createElement('div'); row.className='task-row';
+    const toggle=createToggle(ft.id, on => {
+      S.fixed[ft.id]=on;
+      row.querySelector('.task-name').className='task-name '+(on?'active':'inactive');
+      row.querySelector('.task-input input').disabled=!on;
+    });
+    const info=document.createElement('div'); info.className='task-info';
+    info.innerHTML='<div class="task-name inactive">'+ft.name+'</div>';
+    const inp=document.createElement('div'); inp.className='task-input';
+    const input=document.createElement('input');
+    input.type='number'; input.step='0.5'; input.value=ft.hours; input.disabled=true;
+    input.onchange=()=>{ S.fixedH[ft.id]=parseFloat(input.value)||0; };
+    inp.appendChild(input);
+    const unit=document.createElement('span'); unit.className='task-unit'; unit.textContent='h';
+    row.append(toggle,info,inp,unit); container.appendChild(row); S.fixedH[ft.id]=ft.hours;
+  });
+}
+
+function updateBtn(){
+  const btn=document.getElementById('btnGenerate');
+  const enabled=gv('numPuros')>0||gv('numCajas')>0;
+  btn.className='btn-generate '+(enabled?'enabled':'disabled');
+}
+document.getElementById('numPuros').addEventListener('input', updateBtn);
+document.getElementById('numCajas').addEventListener('input', updateBtn);
+
+function toggleAdvanced(){
+  const b=document.getElementById('adv-body'),i=document.getElementById('adv-icon');
+  if(b.style.display==='none'){b.style.display='block';i.textContent='−';}
+  else{b.style.display='none';i.textContent='+';}
+}
+
+function calcTask(t){
+  if(!S.tasks[t.id]) return 0;
+  const cant=(S.cantidades[t.id]>0)?S.cantidades[t.id]:(t.unit==='caja'?gv('numCajas'):gv('numPuros'));
+  return (S.times[t.id]??t.time)*cant;
+}
+function calcFixedPuroTask(t){
+  const cant=S.cantidades[t.id]>0?S.cantidades[t.id]:gv('numPuros');
+  return (S.times[t.id]??t.time)*cant;
+}
+
+function generate(){
+  if(!document.getElementById('btnGenerate').classList.contains('enabled')) return;
+  const numPuros=gv('numPuros'),numCajas=gv('numCajas'),numRefs=gv('numRefs');
+  const cph=gv('costPerHour')||15;
+  const costAdv=S.fixed['advertencias']?(gv('costAdv')||150):0;
+  let rows=[],totalSec=0;
+
+  FIXED_PURO_TASKS.forEach(t=>{
+    const sec=calcFixedPuroTask(t);
+    if(sec>0){rows.push({name:t.name,desc:t.desc,cant:S.cantidades[t.id]||numPuros,unit:'puro',sec});totalSec+=sec;}
+  });
+  PURO_OPT_TASKS.forEach(t=>{
+    const sec=calcTask(t);
+    if(sec>0){const cant=S.cantidades[t.id]>0?S.cantidades[t.id]:gv('numPuros');if(cant>0)rows.push({name:t.name,desc:t.desc,cant,unit:'puro',sec});totalSec+=sec;}
+  });
+  CAJA_TASKS.forEach(t=>{
+    const sec=calcTask(t);
+    if(sec>0){const cant=S.cantidades[t.id]>0?S.cantidades[t.id]:numCajas;rows.push({name:t.name,desc:t.desc,cant,unit:'caja',sec});totalSec+=sec;}
+  });
+  MASTERCASE_TASKS.forEach(t=>{
+    const sec=calcTask(t);
+    if(sec>0){const cant=S.cantidades[t.id]>0?S.cantidades[t.id]:numCajas;rows.push({name:t.name,desc:t.desc,cant,unit:'caja',sec});totalSec+=sec;}
+  });
+
+  let fixedSec=0;
+  FIXED.forEach(ft=>{if(S.fixed[ft.id])fixedSec+=(S.fixedH[ft.id]||ft.hours)*3600;});
+  totalSec+=fixedSec;
+
+  const totalH=totalSec/3600,costManip=totalH*cph,totalCost=costManip+costAdv,dias=Math.ceil(totalH/8);
+
+  document.getElementById('res-title').textContent=gs('fabricante')+(gs('pais')?' -> '+gs('pais'):'');
+  document.getElementById('res-client').textContent=gs('cliente')?'Cliente: '+gs('cliente'):'';
+  document.getElementById('res-puros').textContent=numES(numPuros);
+  document.getElementById('res-cajas').textContent=numES(numCajas);
+  document.getElementById('res-refs').textContent=numES(numRefs);
+
+  let bhtml='<div class="breakdown-title">Desglose de Tareas</div><div class="breakdown-wrap"><table class="breakdown-table">';
+  bhtml+='<thead><tr><th>Tarea</th><th class="r">Cantidad</th><th class="r">Tiempo/ud</th><th class="r">Total</th><th class="r">Coste</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const h=r.sec/3600,tiempoUd=r.cant>0?fmtTime(r.sec/r.cant):'—';
+    bhtml+='<tr><td class="task-cell">'+r.name+'<br><span style="font-size:11px;color:var(--text-dim);font-weight:400">'+r.desc+'</span></td>';
+    bhtml+='<td class="r dim">'+numES(r.cant)+' '+r.unit+'s</td><td class="r dim">'+tiempoUd+'</td>';
+    bhtml+='<td class="r">'+fmtTime(r.sec)+'</td><td class="r gold">'+h.toFixed(2)+'h - '+(h*cph).toFixed(2)+'€</td></tr>';
+  });
+  if(fixedSec>0){FIXED.forEach(ft=>{if(!S.fixed[ft.id])return;const h=S.fixedH[ft.id]||ft.hours;bhtml+='<tr><td class="task-cell">'+ft.name+'</td><td class="r dim">—</td><td class="r dim">—</td><td class="r">'+h+'h</td><td class="r gold">'+h+'h - '+(h*cph).toFixed(0)+'€</td></tr>';});}
+  bhtml+='</tbody></table></div>';
+  document.getElementById('breakdown-section').innerHTML=bhtml;
+
+  let shtml='<div class="summary-title">Resumen de Costes</div>';
+  const manipH=(totalSec-fixedSec)/3600;
+  shtml+='<div class="summary-row"><span class="summary-label">Manipulación</span><div class="summary-vals"><span class="summary-hours">'+manipH.toFixed(1)+'h</span><span class="summary-cost">'+(manipH*cph).toFixed(0)+' €</span></div></div>';
+  if(fixedSec>0){const fh=fixedSec/3600;shtml+='<div class="summary-row"><span class="summary-label">Tareas fijas</span><div class="summary-vals"><span class="summary-hours">'+fh.toFixed(1)+'h</span><span class="summary-cost">'+(fh*cph).toFixed(0)+' €</span></div></div>';}
+  if(costAdv>0){shtml+='<div class="summary-row"><span class="summary-label">Advertencias imprenta</span><div class="summary-vals"><span class="summary-hours">—</span><span class="summary-cost">'+costAdv+' €</span></div></div>';}
+  shtml+='<div class="summary-total"><span class="summary-total-label">Total</span><div><div style="display:flex;gap:20px;align-items:center"><span class="summary-total-hours">'+totalH.toFixed(1)+'h</span><span class="summary-total-cost">'+Math.round(totalCost)+' €</span></div><div class="summary-days">aprox. '+dias+' dia'+(dias>1?'s':'')+' de trabajo</div></div></div>';
+  document.getElementById('summary-box').innerHTML=shtml;
+
+  pdfData.cotizacion = {
+    fabricante: gs('fabricante'), pais: gs('pais'), cliente: gs('cliente'),
+    numPuros, numCajas, numRefs, cph,
+    rows, fixedSec, totalSec, totalH, costManip, costAdv, totalCost, dias
   };
 
-  // Inyectar script JSONP apuntando directamente a scriptusercontent (sin redirección)
-  const script = document.createElement('script');
-  script.id = 'jsonp-script';
-  script.src = API_URL_FIJA + '?callback=_cb&t=' + Date.now();
-  script.onerror = function() {
-    clearTimeout(timer);
-    delete window._cb;
-    mostrarError('No se pudo cargar el script de Google. Comprueba tu conexión.');
-  };
-  document.head.appendChild(script);
+  const r=document.getElementById('results');
+  r.classList.add('visible');
+  r.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-function mostrarError(msg) {
-  document.getElementById('db-loading').style.display = 'none';
-  document.getElementById('db-badge').textContent = 'error';
-  document.getElementById('db-badge').className = 'badge badge-danger';
-  document.getElementById('topbar-status').innerHTML = `<span class="badge badge-danger">⚠ Error</span>`;
-  // Mostrar error visible en la sección de BD
-  document.getElementById('db-wrap').innerHTML = `<div style="padding:12px 4px;font-size:13px;color:var(--danger-text);background:var(--danger-bg);border-radius:var(--radius);display:flex;align-items:flex-start;gap:8px"><span>⚠</span><div>${msg}<br><button onclick="cargarDatos()" style="margin-top:8px;padding:6px 14px;font-size:12px;cursor:pointer;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg)">🔄 Reintentar</button></div></div>`;
-  document.getElementById('db-wrap').style.display = 'block';
+// ═══════════════════════════════════════
+// CUBICAJE AÉREO — PASO 2
+// ═══════════════════════════════════════
+const PL=120,PA=80,PH=160,PH_UTIL=145;
+const PALE_VOL=(PL/100)*(PA/100)*(PH/100);
+const PESO_MAX=1500;
+const COLORS=['#2563eb','#16a34a','#9333ea','#ea580c','#0891b2','#be185d','#ca8a04','#7c3aed','#dc2626','#0d9488'];
+
+function fitCaja(l,a,h,hUtil){
+  const hu = hUtil || PH_UTIL;
+  const op1l=Math.floor(PL/l),op1a=Math.floor(PA/a);
+  const op2l=Math.floor(PL/a),op2a=Math.floor(PA/l);
+  let cajasL,cajasA;
+  if(op1l*op1a>=op2l*op2a){cajasL=op1l;cajasA=op1a}else{cajasL=op2l;cajasA=op2a}
+  if(!cajasL||!cajasA)return{ok:false,txt:'No cabe en planta',cajasL:0,cajasA:0,pisos:0,total:0};
+  if(h>hu)return{ok:false,txt:'Alto > '+hu+' cm',cajasL,cajasA,pisos:0,total:0};
+  const pisos=Math.floor(hu/h);
+  const total=cajasL*cajasA*pisos;
+  return{ok:true,cajasL,cajasA,pisos,total,hOcup:pisos*h,hRest:hu-pisos*h,txt:`${total} cajas (${cajasL}x${cajasA}·${pisos}p)`};
 }
 
-function recargarDB() {
-  cargarDatos();
+function getCat(){try{return JSON.parse(localStorage.getItem('cub_v6')||'[]')}catch{return[]}}
+function saveCat(d){localStorage.setItem('cub_v6',JSON.stringify(d))}
+
+function guardarCaja(){
+  const n=document.getElementById('nc-n').value.trim();
+  const l=parseFloat(document.getElementById('nc-l').value)||0;
+  const a=parseFloat(document.getElementById('nc-a').value)||0;
+  const h=document.getElementById('nc-h')?parseFloat(document.getElementById('nc-h').value)||0:0;
+  const t=parseFloat(document.getElementById('nc-t').value)||0;
+  const p=parseFloat(document.getElementById('nc-p').value)||0;
+  if(!n||!l||!a||!h){alert('Rellena nombre y dimensiones.');return}
+  const cat=getCat();cat.push({id:Date.now(),n,l,a,h,t,p});saveCat(cat);
+  ['nc-n','nc-l','nc-a','nc-h','nc-t','nc-p'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderCat();renderCatSel();renderTerrCatSel();renderTerrCat();
+}
+function delCaja(id){saveCat(getCat().filter(c=>c.id!==id));renderCat();renderCatSel();renderTerrCatSel();renderTerrCat();}
+
+function guardarCajaTerr(){
+  const n=document.getElementById('tnc-n').value.trim();
+  const l=parseFloat(document.getElementById('tnc-l').value)||0;
+  const a=parseFloat(document.getElementById('tnc-a').value)||0;
+  const h=parseFloat(document.getElementById('tnc-h').value)||0;
+  const t=parseFloat(document.getElementById('tnc-t').value)||0;
+  const p=parseFloat(document.getElementById('tnc-p').value)||0;
+  if(!n||!l||!a||!h){alert('Rellena nombre y dimensiones.');return}
+  const cat=getCat();cat.push({id:Date.now(),n,l,a,h,t,p});saveCat(cat);
+  ['tnc-n','tnc-l','tnc-a','tnc-h','tnc-t','tnc-p'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderCat();renderCatSel();renderTerrCatSel();renderTerrCat();
 }
 
-function guardarUrl() {}
-function conectarAPI() { cargarDatos(); }
-function conectarJSONP() { cargarDatos(); }
-function mostrarUrlStatus() {}
-
-
-
-function renderDB() {
-  document.getElementById('db-loading').style.display = 'none';
-  document.getElementById('db-rows').innerHTML = db.slice(0, 60).map(p => `
-    <tr>
-      <td style="font-weight:500">${p.ref}</td>
-      <td>${p.desc}</td>
-      <td>${p.largo}</td>
-      <td>${p.ancho}</td>
-      <td>${p.alto}</td>
-      <td>${p.peso != null ? p.peso + ' kg' : '—'}</td>
-    </tr>
-  `).join('') + (db.length > 60 ? `<tr><td colspan="6" style="color:var(--text2);font-size:12px;padding:8px">... y ${db.length-60} productos más</td></tr>` : '');
-  document.getElementById('db-wrap').style.display = 'block';
-  document.getElementById('db-badge').textContent = `${db.length} productos`;
-  document.getElementById('db-badge').className = 'badge badge-success';
+function renderCat(){
+  const g=document.getElementById('catGrid'),cat=getCat();
+  if(!cat.length){g.innerHTML='<p class="empty-msg">Aún no hay cajas guardadas.</p>';return;}
+  g.innerHTML=cat.map((c,i)=>{
+    const fi=fitCaja(c.l,c.a,c.h);
+    const volUd=(c.l*c.a*c.h/1e6).toFixed(4);
+    return`<div class="ccard"><button class="ccard-del" onclick="delCaja(${c.id})">X</button>
+      <div class="ccard-name" style="color:${COLORS[i%COLORS.length]}">${c.n}</div>
+      <div class="ccard-info">Dims: <span>${c.l}x${c.a}x${c.h} cm</span><br>Vol/ud: <span>${volUd} m3</span><br>Peso carga: <span>${c.p} kg</span><br>Planta: <span>${fi.cajasL}x${fi.cajasA}</span> Pisos: <span>${fi.pisos}</span> Total: <span>${fi.total}</span></div>
+      <span class="ccard-tag ${fi.ok?'tag-ok':'tag-err'}">${fi.ok?`V ${fi.total} cajas/pale`:`X ${fi.txt}`}</span></div>`;
+  }).join('');
 }
 
-// ── Autocompletado ──
-function showAC() {
-  const q = document.getElementById('prod-ref').value.trim().toLowerCase();
-  const list = document.getElementById('ac-list');
-  document.getElementById('found-dims').value = '';
-  if (!q || !db.length) { list.style.display = 'none'; return; }
-  const m = db.filter(p => p.ref.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)).slice(0, 8);
-  if (!m.length) { list.style.display = 'none'; return; }
-  list.innerHTML = m.map(p => `
-    <div class="ac-item" onclick="selectProd('${p.ref.replace(/'/g,"\\'")}')">
-      <div class="ac-ref">${p.ref}</div>
-      <div class="ac-desc">${p.desc} · ${p.largo}×${p.ancho}×${p.alto} mm${p.peso ? ' · '+p.peso+' kg' : ''}</div>
-    </div>
-  `).join('');
-  list.style.display = 'block';
+function renderTerrCat(){
+  const g=document.getElementById('terrCatGrid'),cat=getCat();
+  const PH_TERR=165;
+  if(!cat.length){g.innerHTML='<p class="empty-msg">Aún no hay cajas guardadas.</p>';return;}
+  g.innerHTML=cat.map((c,i)=>{
+    const fi=fitCaja(c.l,c.a,c.h,PH_TERR);
+    const volUd=(c.l*c.a*c.h/1e6).toFixed(4);
+    return`<div class="ccard"><button class="ccard-del" onclick="delCaja(${c.id})">X</button>
+      <div class="ccard-name" style="color:${COLORS[i%COLORS.length]}">${c.n}</div>
+      <div class="ccard-info">Dims: <span>${c.l}x${c.a}x${c.h} cm</span><br>Vol/ud: <span>${volUd} m3</span><br>Peso carga: <span>${c.p} kg</span><br>Planta: <span>${fi.cajasL}x${fi.cajasA}</span> Pisos: <span>${fi.pisos}</span> Total: <span>${fi.total}</span></div>
+      <span class="ccard-tag ${fi.ok?'tag-ok':'tag-err'}">${fi.ok?`V ${fi.total} cajas/pale`:`X ${fi.txt}`}</span></div>`;
+  }).join('');
 }
 
-function handleKey(e) {
-  if (e.key === 'Enter') addProduct();
-  if (e.key === 'Escape') document.getElementById('ac-list').style.display = 'none';
+function renderCatSel(){
+  const s=document.getElementById('catSel'),cat=getCat();
+  if(!cat.length){s.innerHTML='<span class="empty-msg">No hay cajas en el catálogo.</span>';return;}
+  s.innerHTML='<span class="cat-sel-lbl">Añadir:</span>'+cat.map(c=>{
+    const fi=fitCaja(c.l,c.a,c.h);
+    return`<button class="cpill${fi.ok?'':' err'}" onclick="addRowFromCat(${c.id})" title="${c.l}x${c.a}x${c.h}cm ${c.p}kg">${c.n}</button>`;
+  }).join('');
 }
 
-function selectProd(ref) {
-  document.getElementById('prod-ref').value = ref;
-  document.getElementById('ac-list').style.display = 'none';
-  const p = db.find(d => d.ref === ref);
-  if (p) document.getElementById('found-dims').value = `${p.largo}×${p.ancho}×${p.alto} mm${p.peso != null ? ' · '+p.peso+' kg' : ''}`;
+function renderTerrCatSel(){
+  const s=document.getElementById('terrCatSel'),cat=getCat();
+  const PH_TERR=165;
+  if(!cat.length){s.innerHTML='<span class="empty-msg">No hay cajas en el catálogo.</span>';return;}
+  s.innerHTML='<span class="cat-sel-lbl">Añadir:</span>'+cat.map(c=>{
+    const fi=fitCaja(c.l,c.a,c.h,PH_TERR);
+    return`<button class="cpill${fi.ok?'':' err'}" onclick="addRowFromTerrCat(${c.id})" title="${c.l}x${c.a}x${c.h}cm ${c.p}kg">${c.n}</button>`;
+  }).join('');
 }
 
-document.addEventListener('click', e => { if (!e.target.closest('.autocomplete')) document.getElementById('ac-list').style.display = 'none'; });
-
-function showErr(msg) {
-  document.getElementById('add-err-msg').textContent = msg;
-  document.getElementById('add-err').style.display = 'flex';
+function addRowFromCat(id){
+  const c=getCat().find(x=>x.id===id);
+  if(c) addRow(c.n,c.l,c.a,c.h,c.p, sharedCajas||1, true);
+}
+function addRowFromTerrCat(id){
+  const c=getCat().find(x=>x.id===id);
+  if(c) addRowTerr(c.n,c.l,c.a,c.h,c.p, sharedCajas||1, true);
 }
 
-function addProduct() {
-  document.getElementById('add-err').style.display = 'none';
-  const ref = document.getElementById('prod-ref').value.trim();
-  const qty = parseInt(document.getElementById('prod-qty').value);
-  if (!ref) { showErr('Introduce una referencia de producto.'); return; }
-  if (!qty || qty < 1) { showErr('La cantidad debe ser mayor que 0.'); return; }
-  if (!db.length) { showErr('Primero conecta con Google Drive usando el panel de configuración.'); return; }
-  const prod = db.find(d => d.ref.toLowerCase() === ref.toLowerCase() || d.desc.toLowerCase() === ref.toLowerCase());
-  if (!prod) { showErr(`No se encontró "${ref}" en la base de datos.`); return; }
-  if (products.find(p => p.ref === prod.ref)) { showErr(`"${prod.ref}" ya está en la lista.`); return; }
-  products.push({ ...prod, qty });
-  renderProducts();
-  document.getElementById('prod-ref').value = '';
-  document.getElementById('prod-qty').value = 100;
-  document.getElementById('found-dims').value = '';
-  document.getElementById('results').style.display = 'none';
+let rowId=0;
+function addRow(desc='',l='',a='',h='',p='',n='',ro=false){
+  const qty = n !== '' ? n : (sharedCajas > 0 ? sharedCajas : '');
+  const id=rowId++;
+  const tbody=document.getElementById('cajasBody');
+  const tr=document.createElement('tr');tr.id='row-'+id;
+  const r=ro?' readonly':'';
+  const inherited = (qty === sharedCajas && sharedCajas > 0) ? ' inherited-qty' : '';
+  tr.innerHTML=`
+    <td class="tdd"><input type="text" placeholder="Descripción" value="${desc}" oninput="calc()"></td>
+    <td class="tn"><input type="number" min="1" placeholder="0" value="${l}"${r} oninput="calc()"></td>
+    <td class="tn"><input type="number" min="1" placeholder="0" value="${a}"${r} oninput="calc()"></td>
+    <td class="tn"><input type="number" min="1" placeholder="0" value="${h}"${r} oninput="calc()"></td>
+    <td class="tn"><input type="number" min=".1" step=".1" placeholder="0" value="${p}"${r} oninput="calc()"></td>
+    <td class="tn"><input type="number" min="1" placeholder="0" value="${qty}" class="${inherited}" oninput="calc()"></td>
+    <td class="tbadge" id="fit-${id}">—</td>
+    <td class="tbadge" id="pisos-${id}">—</td>
+    <td class="tbadge" id="pales-${id}">—</td>
+    <td class="tc"><button class="bdel" onclick="delRow(${id})">X</button></td>`;
+  tbody.appendChild(tr);calc();
+}
+function delRow(id){const el=document.getElementById('row-'+id);if(el){el.remove();calc();}}
+
+// ── TERRESTRE ROWS ──
+let terrRowId=0;
+function addRowTerr(desc='',l='',a='',h='',p='',n='',ro=false){
+  const qty = n !== '' ? n : (sharedCajas > 0 ? sharedCajas : '');
+  const id=terrRowId++;
+  const tbody=document.getElementById('terrCajasBody');
+  const tr=document.createElement('tr');tr.id='terr-row-'+id;
+  const r=ro?' readonly':'';
+  const inherited = (qty === sharedCajas && sharedCajas > 0) ? ' inherited-qty' : '';
+  tr.innerHTML=`
+    <td class="tdd"><input type="text" placeholder="Descripción" value="${desc}" oninput="calcTerr()"></td>
+    <td class="tn"><input type="number" min="1" placeholder="0" value="${l}"${r} oninput="calcTerr()"></td>
+    <td class="tn"><input type="number" min="1" placeholder="0" value="${a}"${r} oninput="calcTerr()"></td>
+    <td class="tn"><input type="number" min="1" placeholder="0" value="${h}"${r} oninput="calcTerr()"></td>
+    <td class="tn"><input type="number" min=".1" step=".1" placeholder="0" value="${p}"${r} oninput="calcTerr()"></td>
+    <td class="tn"><input type="number" min="1" placeholder="0" value="${qty}" class="${inherited}" oninput="calcTerr()"></td>
+    <td class="tbadge" id="terr-fit-${id}">—</td>
+    <td class="tbadge" id="terr-pisos-${id}">—</td>
+    <td class="tbadge" id="terr-pales-${id}">—</td>
+    <td class="tc"><button class="bdel" onclick="delRowTerr(${id})">X</button></td>`;
+  tbody.appendChild(tr);calcTerr();
+}
+function delRowTerr(id){const el=document.getElementById('terr-row-'+id);if(el){el.remove();calcTerr();}}
+
+function getRows(){
+  return[...document.querySelectorAll('#cajasBody tr')].map(tr=>{
+    const i=tr.querySelectorAll('input');
+    return{id:tr.id.replace('row-',''),desc:i[0].value||'Sin desc',
+      l:parseFloat(i[1].value)||0,a:parseFloat(i[2].value)||0,h:parseFloat(i[3].value)||0,
+      p:parseFloat(i[4].value)||0,n:parseInt(i[5].value)||0};
+  });
 }
 
-function removeProduct(idx) { products.splice(idx, 1); renderProducts(); document.getElementById('results').style.display = 'none'; }
-function updateQty(idx, val) { products[idx].qty = parseInt(val) || 1; }
-
-function renderProducts() {
-  const el = document.getElementById('product-list');
-  if (!products.length) { el.innerHTML = ''; return; }
-  el.innerHTML = products.map((p, i) => `
-    <div class="product-item">
-      <div>
-        <span style="font-weight:500">${p.ref}</span>
-        <span style="font-size:12px;color:var(--text2);margin-left:8px">${p.largo}×${p.ancho}×${p.alto} mm${p.peso != null ? ' · '+p.peso+' kg/ud.' : ''}</span>
-        <div style="font-size:12px;color:var(--text2);margin-top:2px">${p.desc}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--text2)">uds:</span>
-        <input type="number" value="${p.qty}" min="1" style="width:80px;font-size:13px;padding:5px 8px" onchange="updateQty(${i},this.value)">
-        <button onclick="removeProduct(${i})" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:4px;font-size:18px;line-height:1" title="Eliminar">✕</button>
-      </div>
-    </div>
-  `).join('');
+function getTerrRows(){
+  return[...document.querySelectorAll('#terrCajasBody tr')].map(tr=>{
+    const i=tr.querySelectorAll('input');
+    return{id:tr.id.replace('terr-row-',''),desc:i[0].value||'Sin desc',
+      l:parseFloat(i[1].value)||0,a:parseFloat(i[2].value)||0,h:parseFloat(i[3].value)||0,
+      p:parseFloat(i[4].value)||0,n:parseInt(i[5].value)||0};
+  });
 }
 
-// ── Contenedores ──
-function renderContainers() {
-  document.getElementById('container-grid').innerHTML = containers.map((c, i) => `
-    <div class="cont-card ${i === selCont ? 'sel' : ''}" onclick="selectCont(${i})">
-      <div class="c-name">${c.name}</div>
-      <div class="c-info">
-        ${c.largo}×${c.ancho}×${c.alto} mm · ${(c.largo*c.ancho*c.alto/1e6).toFixed(1)} L
-        ${c.pesoMax ? `<br><span style="color:var(--warn-text)">Máx. ${c.pesoMax} kg</span>` : ''}
-      </div>
-    </div>
-  `).join('');
-  updateSelInfo();
+let _cubState = null;
+let _terrState = null;
+
+function calc(){
+  const rows=getRows();
+  const rowsV=rows.filter(r=>r.l>0&&r.a>0&&r.h>0&&r.n>0);
+
+  rows.forEach(r=>{
+    const ef=document.getElementById('fit-'+r.id);
+    const ep=document.getElementById('pisos-'+r.id);
+    const epa=document.getElementById('pales-'+r.id);
+    if(r.l>0&&r.a>0&&r.h>0&&r.n>0){
+      const fi=fitCaja(r.l,r.a,r.h);
+      if(ef){ef.textContent=fi.total>0?fi.total+'/p':'No cabe';ef.className='tbadge '+(fi.ok?'ok':'err-c');}
+      if(ep){ep.textContent=fi.pisos||'—';ep.className='tbadge '+(fi.ok?'ok':'err-c');}
+      const pN=fi.total>0?Math.ceil(r.n/fi.total):0;
+      if(epa){epa.textContent=pN>0?pN+'p':'—';epa.className='tbadge '+(fi.ok?'ok':'err-c');}
+    }else{[ef,ep,epa].forEach(e=>{if(e){e.textContent='—';e.className='tbadge';}});}
+  });
+
+  let pales=[];
+  rowsV.forEach((r,i)=>{
+    const fi=fitCaja(r.l,r.a,r.h);
+    const color=COLORS[i%COLORS.length];
+    const volUd=(r.l*r.a*r.h)/1e6;
+    if(!fi.ok||!fi.total){pales.push({err:true,cajas:[{...r,color,fi,volUd}],nCajas:r.n,peso:r.p*r.n,volCajas:volUd*r.n});return;}
+    let rest=r.n;
+    while(rest>0){
+      const n=Math.min(rest,fi.total);
+      pales.push({err:false,cajas:[{...r,color,fi,volUd}],nCajas:n,peso:r.p*n,volCajas:volUd*n,volPale:PALE_VOL,capacidad:fi.total,pctLlenado:Math.round(n/fi.total*100),fi,r});
+      rest-=n;
+    }
+  });
+
+  const numPales=pales.filter(p=>!p.err).length;
+  const totalBultos=rowsV.reduce((s,r)=>s+r.n,0);
+  const totalPeso=pales.reduce((s,p)=>s+p.peso,0);
+  const totalVolCajas=pales.reduce((s,p)=>s+(p.volCajas||0),0);
+  const volTotalPales=numPales*PALE_VOL;
+
+  _cubState = { pales, numPales, totalBultos, totalPeso, totalVolCajas, volTotalPales, rowsV };
+  pdfData.cubicaje = _cubState;
+
+  document.getElementById('quickCards').innerHTML=`
+    <div class="qc"><div class="qc-lbl">Total bultos</div><div class="qc-val">${totalBultos}</div><div class="qc-unit">cajas</div></div>
+    <div class="qc blue"><div class="qc-lbl">Nº de palés</div><div class="qc-val">${numPales}</div><div class="qc-unit">palés europeos</div></div>
+    <div class="qc purple"><div class="qc-lbl">Vol. real cajas</div><div class="qc-val">${totalVolCajas.toFixed(3)}</div><div class="qc-unit">m3</div></div>
+    <div class="qc blue"><div class="qc-lbl">Vol. total palés</div><div class="qc-val">${volTotalPales.toFixed(3)}</div><div class="qc-unit">m3</div></div>
+    <div class="qc green"><div class="qc-lbl">Peso real total</div><div class="qc-val">${totalPeso.toFixed(1)}</div><div class="qc-unit">kg</div></div>`;
+
+  renderDesgloseTable(pales, numPales, totalBultos, totalVolCajas, volTotalPales, totalPeso, 'desgloseTable', 'alertBox', 'cotGrid', false);
 }
 
-function selectCont(i) { selCont = i; renderContainers(); }
+// ═══════════════════════════════════════
+// CUBICAJE TERRESTRE — PASO 3
+// ═══════════════════════════════════════
+const PH_TERR_TOTAL = 180;
+const PH_PALE_TERR  = 15;
+const PH_TERR_UTIL  = PH_TERR_TOTAL - PH_PALE_TERR; // 165 cm
+const PALE_VOL_TERR = (PL/100)*(PA/100)*(PH_TERR_TOTAL/100); // 1.728 m³
+const PESO_MAX_TERR = 1500;
 
-function updateSelInfo() {
-  const c = containers[selCont];
-  document.getElementById('sel-info').style.display = 'flex';
-  document.getElementById('sel-name').textContent = c.name;
-  document.getElementById('sel-vol').textContent = `${(c.largo*c.ancho*c.alto/1e6).toFixed(1)} L`;
-  const wb = document.getElementById('sel-w-badge');
-  if (c.pesoMax) {
-    wb.textContent = `Peso máx.: ${c.pesoMax} kg`;
-    wb.style.background = 'var(--warn-bg)'; wb.style.color = 'var(--warn-text)';
+function calcTerr(){
+  const rows=getTerrRows();
+  const rowsV=rows.filter(r=>r.l>0&&r.a>0&&r.h>0&&r.n>0);
+
+  rows.forEach(r=>{
+    const ef=document.getElementById('terr-fit-'+r.id);
+    const ep=document.getElementById('terr-pisos-'+r.id);
+    const epa=document.getElementById('terr-pales-'+r.id);
+    if(r.l>0&&r.a>0&&r.h>0&&r.n>0){
+      const fi=fitCaja(r.l,r.a,r.h,PH_TERR_UTIL);
+      if(ef){ef.textContent=fi.total>0?fi.total+'/p':'No cabe';ef.className='tbadge '+(fi.ok?'ok':'err-c');}
+      if(ep){ep.textContent=fi.pisos||'—';ep.className='tbadge '+(fi.ok?'ok':'err-c');}
+      const pN=fi.total>0?Math.ceil(r.n/fi.total):0;
+      if(epa){epa.textContent=pN>0?pN+'p':'—';epa.className='tbadge '+(fi.ok?'ok':'err-c');}
+    }else{[ef,ep,epa].forEach(e=>{if(e){e.textContent='—';e.className='tbadge';}});}
+  });
+
+  let pales=[];
+  rowsV.forEach((r,i)=>{
+    const fi=fitCaja(r.l,r.a,r.h,PH_TERR_UTIL);
+    const color=COLORS[i%COLORS.length];
+    const volUd=(r.l*r.a*r.h)/1e6;
+    if(!fi.ok||!fi.total){pales.push({err:true,cajas:[{...r,color,fi,volUd}],nCajas:r.n,peso:r.p*r.n,volCajas:volUd*r.n});return;}
+    let rest=r.n;
+    while(rest>0){
+      const n=Math.min(rest,fi.total);
+      pales.push({err:false,cajas:[{...r,color,fi,volUd}],nCajas:n,peso:r.p*n,volCajas:volUd*n,volPale:PALE_VOL_TERR,capacidad:fi.total,pctLlenado:Math.round(n/fi.total*100),fi,r});
+      rest-=n;
+    }
+  });
+
+  const numPales=pales.filter(p=>!p.err).length;
+  const totalBultos=rowsV.reduce((s,r)=>s+r.n,0);
+  const totalPeso=pales.reduce((s,p)=>s+p.peso,0);
+  const totalVolCajas=pales.reduce((s,p)=>s+(p.volCajas||0),0);
+  const volTotalPales=numPales*PALE_VOL_TERR;
+
+  _terrState = { pales, numPales, totalBultos, totalPeso, totalVolCajas, volTotalPales, rowsV };
+  pdfData.terrestre = _terrState;
+
+  document.getElementById('terrQuickCards').innerHTML=`
+    <div class="qc"><div class="qc-lbl">Total bultos</div><div class="qc-val">${totalBultos}</div><div class="qc-unit">cajas</div></div>
+    <div class="qc terr"><div class="qc-lbl">Nº de palés</div><div class="qc-val">${numPales}</div><div class="qc-unit">palés 120×80×180</div></div>
+    <div class="qc purple"><div class="qc-lbl">Vol. real cajas</div><div class="qc-val">${totalVolCajas.toFixed(3)}</div><div class="qc-unit">m3</div></div>
+    <div class="qc terr"><div class="qc-lbl">Vol. total palés</div><div class="qc-val">${volTotalPales.toFixed(3)}</div><div class="qc-unit">m3 (1,728 m³/palé)</div></div>
+    <div class="qc green"><div class="qc-lbl">Peso real total</div><div class="qc-val">${totalPeso.toFixed(1)}</div><div class="qc-unit">kg</div></div>`;
+
+  renderDesgloseTable(pales, numPales, totalBultos, totalVolCajas, volTotalPales, totalPeso, 'terrDesgloseTable', 'terrAlertBox', 'terrCotGrid', true);
+}
+
+function renderDesgloseTable(pales, numPales, totalBultos, totalVolCajas, volTotalPales, totalPeso, tableId, alertId, cotId, esTerr){
+  const paleColor = esTerr ? '#92400e' : '#1a1a18';
+  const numColor  = esTerr ? '#b45309' : '#1d4ed8';
+  let thead=`<thead><tr><th>Palé</th><th>Contenido</th><th>Cajas</th><th>% Lleno</th><th>Altura carga</th><th>Vol. cajas</th><th>Vol. palé</th><th>Peso real</th></tr></thead>`;
+  let totalVCT=0,totalVPT=0,totalPT=0,totalCT=0;
+  let tbody2='<tbody>';
+  pales.forEach((pale,idx)=>{
+    if(pale.err){
+      const c=pale.cajas[0];
+      tbody2+=`<tr><td><div class="pale-num-big" style="color:${numColor}">Palé ${idx+1}</div></td><td colspan="7" style="color:#991b1b;font-size:12px"><div class="box-chip" style="background:#fde8e8;color:#991b1b">${c.desc}</div> X ${c.fi.txt}</td></tr>`;
+      return;
+    }
+    const c=pale.cajas[0];const fi=c.fi;
+    const hUtil = esTerr ? PH_TERR_UTIL : PH_UTIL;
+    const hOcup=fi.pisos*c.h,hLibre=hUtil-hOcup,pct=pale.pctLlenado;
+    const barColor=pct<50?'#f59e0b':pct<80?'#2563eb':'#15803d';
+    const pctColor=pct<50?'#92400e':pct<80?'#1d4ed8':'#15803d';
+    totalVCT+=pale.volCajas;totalVPT+=pale.volPale;totalPT+=pale.peso;totalCT+=pale.nCajas;
+    tbody2+=`<tr>
+      <td><div class="pale-num-big" style="color:${numColor}">Palé ${idx+1}</div><div class="pale-dim-sub">${esTerr?'120x80x180 cm':'120x80x160 cm'}</div></td>
+      <td><div class="box-chip" style="background:${c.color}20;color:${c.color}">${c.desc}</div><div class="pale-stack-info">${fi.cajasL}x${fi.cajasA} por piso · ${fi.pisos} piso${fi.pisos>1?'s':''}</div></td>
+      <td style="font-size:16px;font-weight:700;color:${numColor}">${pale.nCajas}<div style="font-size:10px;color:#888780;font-weight:400">${c.l}x${c.a}x${c.h} cm</div></td>
+      <td style="min-width:110px"><div class="fill-pct" style="color:${pctColor}">${pct}%</div><div class="fill-bar-wrap"><div class="fill-bar" style="width:${pct}%;background:${barColor}"></div></div><div class="fill-sub">${pale.nCajas} de ${fi.total} posibles</div></td>
+      <td><div class="alt-val">${hOcup} cm</div><div class="alt-sub">+${hLibre} cm libres</div></td>
+      <td><div class="vol-cajas-val">${pale.volCajas.toFixed(4)} m3</div><div class="vol-cajas-sub">${pale.nCajas} x ${c.volUd.toFixed(4)} m3</div></td>
+      <td><div style="font-size:15px;font-weight:700;color:${numColor}">${pale.volPale.toFixed(3)} m3</div><div class="vol-pale-sub">${esTerr?'1,20x0,80x1,80 m':'1,20x0,80x1,60 m'}</div></td>
+      <td><div class="peso-val">${pale.peso.toFixed(2)} kg</div><div class="peso-sub">${c.p} kg x ${pale.nCajas}</div></td></tr>`;
+  });
+  const footBg = esTerr ? '#92400e' : '#1a1a18';
+  tbody2+=`</tbody><tfoot><tr style="background:${footBg}"><td colspan="2">TOTAL — ${numPales} palé${numPales!==1?'s':''}</td><td>${totalCT} cajas</td><td>—</td><td>—</td><td style="color:#c4b5fd">${totalVCT.toFixed(3)} m3</td><td style="color:#93c5fd">${totalVPT.toFixed(3)} m3</td><td style="color:#86efac">${totalPT.toFixed(2)} kg</td></tr></tfoot>`;
+  document.getElementById(tableId).innerHTML=thead+tbody2;
+
+  const pesMax = esTerr ? PESO_MAX_TERR : PESO_MAX;
+  let alerts='';
+  if(pales.some(p=>p.err))alerts+=`<div class="alert err">X Alguna caja no cabe en el palé. Revisa las filas marcadas.</div>`;
+  pales.forEach((p,i)=>{
+    if(!p.err&&p.peso>pesMax)alerts+=`<div class="alert warn">Aviso Palé ${i+1}: ${p.peso.toFixed(0)} kg supera el límite de ${pesMax} kg.</div>`;
+    if(!p.err&&p.pctLlenado<40)alerts+=`<div class="alert warn">Aviso Palé ${i+1}: solo al ${p.pctLlenado}% — considera consolidar con otro palé.</div>`;
+  });
+  document.getElementById(alertId).innerHTML=alerts;
+
+  if(esTerr){
+    document.getElementById(cotId).innerHTML=`
+      <div class="terr-item"><div class="terr-lbl">Número de palés</div><div class="terr-val">${numPales}</div><div class="terr-unit">palés 120×80×180 cm</div></div>
+      <div class="terr-item"><div class="terr-lbl">Total bultos</div><div class="terr-val">${totalBultos}</div><div class="terr-unit">cajas</div></div>
+      <div class="terr-item"><div class="terr-lbl">Vol. real cajas</div><div class="terr-val" style="color:#7c3aed">${totalVolCajas.toFixed(3)}</div><div class="terr-unit">m3</div></div>
+      <div class="terr-item"><div class="terr-lbl">Peso real total</div><div class="terr-val" style="color:#15803d">${totalPeso.toFixed(2)}</div><div class="terr-unit">kg</div></div>`;
   } else {
-    wb.textContent = 'Sin límite de peso';
-    wb.style.background = 'var(--bg3)'; wb.style.color = 'var(--text2)';
+    document.getElementById(cotId).innerHTML=`
+      <div class="cot-item"><div class="cot-lbl">Número de palés</div><div class="cot-val">${numPales}</div><div class="cot-unit">palés europeos 120x80x160 cm</div></div>
+      <div class="cot-item" style="border-color:#a78bfa"><div class="cot-lbl">Volumen real cajas</div><div class="cot-val" style="color:#7c3aed">${totalVolCajas.toFixed(3)}</div><div class="cot-unit">m3</div></div>
+      <div class="cot-item" style="border-color:#86efac"><div class="cot-lbl">Peso real total</div><div class="cot-val" style="color:#15803d">${totalPeso.toFixed(2)}</div><div class="cot-unit">kg</div></div>`;
   }
 }
 
-function addCustomContainer() {
-  const name = document.getElementById('custom-name').value.trim();
-  const l = parseInt(document.getElementById('c-largo').value);
-  const a = parseInt(document.getElementById('c-ancho').value);
-  const h = parseInt(document.getElementById('c-alto').value);
-  const pm = parseFloat(document.getElementById('c-pesomax').value) || 0;
-  if (!name || !l || !a || !h) { alert('Completa nombre y medidas del contenedor.'); return; }
-  containers.push({ name, largo: l, ancho: a, alto: h, pesoMax: pm });
-  selCont = containers.length - 1;
-  renderContainers();
-  document.getElementById('custom-name').value = '';
-}
-
-// ── Cálculo ──
-function calcByVol(prod, cont) {
-  const pl = [prod.largo, prod.ancho, prod.alto];
-  const perms = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
-  let best = 0;
-  perms.forEach(p => {
-    const fl = Math.floor(cont.largo/pl[p[0]]);
-    const fa = Math.floor(cont.ancho/pl[p[1]]);
-    const fh = Math.floor(cont.alto/pl[p[2]]);
-    if (fl>0&&fa>0&&fh>0) best = Math.max(best, fl*fa*fh);
+function copiarResumen(){
+  const rows=getRows();
+  const rowsV=rows.filter(r=>r.l>0&&r.a>0&&r.h>0&&r.n>0);
+  let pales=[];
+  rowsV.forEach(r=>{
+    const fi=fitCaja(r.l,r.a,r.h);
+    if(!fi.ok||!fi.total)return;
+    const volUd=(r.l*r.a*r.h)/1e6;
+    let rest=r.n;
+    while(rest>0){const n=Math.min(rest,fi.total);pales.push({...r,n,fi,volUd});rest-=n;}
   });
-  return best;
-}
-
-function calcEffective(byVol, pesoUd, pesoMax) {
-  if (!pesoMax || !pesoUd) return { units: byVol, byWeight: false };
-  const mw = Math.floor(pesoMax / pesoUd);
-  return mw < byVol ? { units: mw, byWeight: true } : { units: byVol, byWeight: false };
-}
-
-function calculate() {
-  document.getElementById('add-err').style.display = 'none';
-  if (!products.length) { showErr('Añade al menos un producto antes de calcular.'); return; }
-  const cont = containers[selCont];
-  let html = '', totalConts = 0, totalPeso = 0, fitCount = 0;
-
-  products.forEach(prod => {
-    const byVol = calcByVol(prod, cont);
-    if (byVol === 0) {
-      html += `<div class="result-product">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-weight:500">${prod.ref} — ${prod.desc}</span>
-          <span class="badge badge-danger">✕ No cabe</span>
-        </div>
-        <div class="err-box">⚠ El producto (${prod.largo}×${prod.ancho}×${prod.alto} mm) no cabe en el contenedor (${cont.largo}×${cont.ancho}×${cont.alto} mm).</div>
-      </div>`; return;
-    }
-    fitCount++;
-    const { units, byWeight } = calcEffective(byVol, prod.peso, cont.pesoMax);
-    const contsNeeded = Math.ceil(prod.qty / units);
-    totalConts += contsNeeded;
-    const lastUnits = prod.qty % units || units;
-    const pesoLleno = prod.peso ? parseFloat((units * prod.peso).toFixed(2)) : null;
-    const pesoUltimo = prod.peso ? parseFloat((lastUnits * prod.peso).toFixed(2)) : null;
-    const pesoTotalProd = prod.peso ? parseFloat((prod.qty * prod.peso).toFixed(2)) : null;
-    if (pesoTotalProd) totalPeso += pesoTotalProd;
-    const occVol = Math.round((units * prod.largo * prod.ancho * prod.alto) / (cont.largo * cont.ancho * cont.alto) * 100);
-    const occVolColor = occVol > 80 ? '#22c55e' : occVol > 50 ? '#f59e0b' : '#94a3b8';
-    let occPeso = null, occPesoColor = '#94a3b8';
-    if (pesoLleno && cont.pesoMax) {
-      occPeso = Math.round(pesoLleno / cont.pesoMax * 100);
-      occPesoColor = occPeso > 90 ? '#ef4444' : occPeso > 70 ? '#f59e0b' : '#22c55e';
-    }
-    html += `<div class="result-product">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div>
-          <span style="font-weight:500">${prod.ref}</span>
-          <span style="font-size:12px;color:var(--text2);margin-left:8px">${prod.desc}</span>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          ${byWeight ? '<span class="badge badge-warn">⚖ limitado por peso</span>' : ''}
-          <span class="badge badge-success">${prod.qty} uds.</span>
-        </div>
-      </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
-        ${prod.largo}×${prod.ancho}×${prod.alto} mm${prod.peso ? ' · '+prod.peso+' kg/ud.' : ''} · ${cont.name}${cont.pesoMax ? ' · máx. '+cont.pesoMax+' kg' : ''}
-      </div>
-      <div class="metric-grid">
-        <div class="metric"><div class="metric-val" style="color:var(--blue-text)">${units}</div><div class="metric-lbl">uds./contenedor</div></div>
-        <div class="metric"><div class="metric-val">${contsNeeded}</div><div class="metric-lbl">contenedores</div></div>
-        <div class="metric"><div class="metric-val" style="color:${occVolColor}">${occVol}%</div><div class="metric-lbl">ocup. volumen</div></div>
-        <div class="metric"><div class="metric-val" style="color:${pesoLleno!=null?occPesoColor:'var(--text3)'}">${pesoLleno!=null?pesoLleno.toFixed(1)+' kg':'—'}</div><div class="metric-lbl">peso/contenedor</div></div>
-        <div class="metric"><div class="metric-val" style="color:${occPeso!=null?occPesoColor:'var(--text3)'}">${occPeso!=null?occPeso+'%':'—'}</div><div class="metric-lbl">ocup. peso</div></div>
-      </div>
-      <div class="prog-row">
-        <div><div class="prog-lbl">Ocupación de volumen</div><div class="prog-bar"><div class="prog-fill" style="width:${occVol}%;background:${occVolColor}"></div></div></div>
-        ${occPeso!=null?`<div><div class="prog-lbl">Ocupación de peso</div><div class="prog-bar"><div class="prog-fill" style="width:${Math.min(occPeso,100)}%;background:${occPesoColor}"></div></div></div>`:'<div></div>'}
-      </div>
-      ${contsNeeded>1?`<div class="info-row">Último contenedor: <strong>${lastUnits} uds.</strong>${pesoUltimo!=null?' · <strong>'+pesoUltimo.toFixed(1)+' kg</strong>':''}${cont.pesoMax&&pesoUltimo!=null?' · '+Math.round(pesoUltimo/cont.pesoMax*100)+'% del límite':''}</div>`:''}
-      ${pesoTotalProd!=null?`<div style="margin-top:6px;font-size:12px;color:var(--text2)">Peso total del lote: <strong>${pesoTotalProd.toFixed(1)} kg</strong></div>`:''}
-      ${byWeight?'<div class="warn-box">⚖ El límite de peso restringe más que el volumen.</div>':''}
-      ${occVol<40&&!byWeight?'<div class="warn-box">💡 Baja ocupación. Considera un contenedor más pequeño.</div>':''}
-    </div>`;
+  const totalBultos=rowsV.reduce((s,r)=>s+r.n,0);
+  const totalPeso=pales.reduce((s,p)=>s+p.p*p.n,0).toFixed(2);
+  const totalVolCajas=pales.reduce((s,p)=>s+p.volUd*p.n,0).toFixed(3);
+  const detalleCajas=rowsV.map(r=>`  - ${r.n} x ${r.desc}: ${r.l}x${r.a}x${r.h} cm, ${r.p} kg/ud`).join('\n');
+  const detallePales=pales.map((p,i)=>`  Pale ${i+1}: ${p.n} cajas "${p.desc}" | ${p.fi.cajasL}x${p.fi.cajasA} planta, ${p.fi.pisos} pisos | Alt.: ${p.fi.pisos*p.h} cm | Vol.: ${(p.volUd*p.n).toFixed(4)} m3 | Peso: ${(p.p*p.n).toFixed(2)} kg | ${Math.round(p.n/p.fi.total*100)}%`).join('\n');
+  const txt=`SOLICITUD DE COTIZACION - FLETE AEREO\n${'='.repeat(54)}\nMERCANCIA:\n${detalleCajas}\n\nDESGLOSE POR PALE:\n${detallePales}\n\nTOTALES:\n  Numero de pales: ${pales.length}\n  Total bultos: ${totalBultos} cajas\n  Vol. real de cajas: ${totalVolCajas} m3\n  Peso real total: ${totalPeso} kg\n${'='.repeat(54)}`;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const t=document.getElementById('toast');t.style.display='block';
+    setTimeout(()=>t.style.display='none',3500);
   });
+}
 
-  if (fitCount > 1) {
-    html += `<div class="divider"></div>
-    <div class="total-grid">
-      <div class="total-card"><div class="total-val">${products.length}</div><div class="total-lbl">referencias</div></div>
-      <div class="total-card"><div class="total-val">${products.reduce((s,p)=>s+p.qty,0).toLocaleString()}</div><div class="total-lbl">unidades totales</div></div>
-      <div class="total-card" style="border-color:#185fa5"><div class="total-val" style="color:var(--blue-text)">${totalConts}</div><div class="total-lbl">contenedores totales</div></div>
-      <div class="total-card" style="border-color:#854f0b"><div class="total-val" style="color:var(--warn-text)">${totalPeso>0?totalPeso.toFixed(1)+' kg':'—'}</div><div class="total-lbl">peso total lotes</div></div>
-    </div>`;
+function copiarResumenTerr(){
+  const rows=getTerrRows();
+  const rowsV=rows.filter(r=>r.l>0&&r.a>0&&r.h>0&&r.n>0);
+  let pales=[];
+  rowsV.forEach(r=>{
+    const fi=fitCaja(r.l,r.a,r.h,PH_TERR_UTIL);
+    if(!fi.ok||!fi.total)return;
+    const volUd=(r.l*r.a*r.h)/1e6;
+    let rest=r.n;
+    while(rest>0){const n=Math.min(rest,fi.total);pales.push({...r,n,fi,volUd});rest-=n;}
+  });
+  const totalBultos=rowsV.reduce((s,r)=>s+r.n,0);
+  const totalPeso=pales.reduce((s,p)=>s+p.p*p.n,0).toFixed(2);
+  const totalVolCajas=pales.reduce((s,p)=>s+p.volUd*p.n,0).toFixed(3);
+  const detalleCajas=rowsV.map(r=>`  - ${r.n} x ${r.desc}: ${r.l}x${r.a}x${r.h} cm, ${r.p} kg/ud`).join('\n');
+  const detallePales=pales.map((p,i)=>`  Pale ${i+1}: ${p.n} cajas "${p.desc}" | ${p.fi.cajasL}x${p.fi.cajasA} planta, ${p.fi.pisos} pisos | Alt. carga: ${p.fi.pisos*p.h} cm | Vol.: ${(p.volUd*p.n).toFixed(4)} m3 | Peso: ${(p.p*p.n).toFixed(2)} kg | ${Math.round(p.n/p.fi.total*100)}%`).join('\n');
+  const txt=`SOLICITUD DE COTIZACION - TRANSPORTE TERRESTRE\n${'='.repeat(54)}\nPALE: 120x80x180 cm (altura util carga: ${PH_TERR_UTIL} cm)\nMERCANCIA:\n${detalleCajas}\n\nDESGLOSE POR PALE:\n${detallePales}\n\nTOTALES:\n  Numero de pales: ${pales.length}\n  Total bultos: ${totalBultos} cajas\n  Vol. real de cajas: ${totalVolCajas} m3\n  Peso real total: ${totalPeso} kg\n${'='.repeat(54)}`;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const t=document.getElementById('terrToast');t.style.display='block';
+    setTimeout(()=>t.style.display='none',3500);
+  });
+}
+
+function showCubTab(n){
+  document.querySelectorAll('.cub-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.cub-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('cub-tab-'+n).classList.add('active');
+  document.querySelectorAll('#step-2 .cub-tab-btn').forEach(b=>{
+    if((n==='pedido'&&b.textContent==='Pedido')||(n==='catalogo'&&b.textContent.includes('Cat')))b.classList.add('active');
+  });
+}
+
+function showTerrTab(n){
+  const panels=document.querySelectorAll('#step-3 .cub-panel');
+  panels.forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#step-3 .cub-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('terr-tab-'+n).classList.add('active');
+  document.querySelectorAll('#step-3 .cub-tab-btn').forEach(b=>{
+    if((n==='pedido'&&b.textContent==='Pedido')||(n==='catalogo'&&b.textContent.includes('Cat')))b.classList.add('active');
+  });
+}
+
+// ═══════════════════════════════════════
+// EXPORTAR PDF COMPLETO
+// ═══════════════════════════════════════
+function exportarPDFCompleto() {
+  const { jsPDF } = window.jspdf;
+  if(!jsPDF) { alert('Error: librería PDF no disponible.'); return; }
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, mg = 14;
+  const GOLD = [139, 101, 8];
+  const DARK = [26, 26, 26];
+  const BLUE = [24, 95, 165];
+  const ORANGE = [180, 83, 9];
+  const LIGHT = [245, 243, 239];
+  const now = new Date();
+  const fechaStr = now.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const horaStr  = now.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+
+  function addHeader(pageNum, totalPages) {
+    doc.setFillColor(...DARK);
+    doc.rect(0, 0, W, 22, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.text('LOGISTICA DE TABACO', mg, 8);
+    doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text('Informe de Pedido', mg, 16);
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.text(`Emitido: ${fechaStr} ${horaStr}`, W - mg, 8, { align: 'right' });
+    doc.text(`Pag. ${pageNum} / ${totalPages}`, W - mg, 16, { align: 'right' });
+    doc.setTextColor(0,0,0);
   }
 
-  document.getElementById('results-inner').innerHTML = html;
-  document.getElementById('results').style.display = 'block';
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  function addFooter() {
+    doc.setDrawColor(...GOLD);
+    doc.setLineWidth(0.4);
+    doc.line(mg, 285, W - mg, 285);
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.setTextColor(...GOLD);
+    doc.text('Gestion de Pedidos — Puros & Logistica', mg, 290);
+    doc.setTextColor(150,150,150);
+    doc.text('Documento confidencial. Uso interno.', W - mg, 290, { align: 'right' });
+    doc.setTextColor(0,0,0);
+  }
+
+  function sectionTitle(doc, y, label, color) {
+    const c = color || GOLD;
+    doc.setFillColor(...c);
+    doc.rect(mg, y, W - mg*2, 7, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(label.toUpperCase(), mg + 3, y + 5);
+    doc.setTextColor(0,0,0);
+    return y + 10;
+  }
+
+  const cot = pdfData.cotizacion;
+  const cub = pdfData.cubicaje;
+  const terr = pdfData.terrestre;
+
+  let y = 28;
+
+  // ── DATOS DEL PEDIDO ──
+  y = sectionTitle(doc, y, '1. Datos del Pedido');
+  const fichaData = [
+    ['Fabricante', cot ? cot.fabricante : '—'],
+    ['Pais Destino', cot ? (cot.pais || '—') : '—'],
+    ['Cliente', cot ? (cot.cliente || '—') : '—'],
+    ['N. Referencias', cot ? cot.numRefs.toString() : '—'],
+    ['Cant. Puros', cot ? cot.numPuros.toLocaleString('es-ES') : '—'],
+    ['Cant. Cajas', cot ? cot.numCajas.toLocaleString('es-ES') : '—'],
+    ['Fecha', fechaStr],
+  ];
+  doc.autoTable({
+    startY: y, margin: { left: mg, right: mg },
+    head: [], body: fichaData,
+    styles: { fontSize: 9, cellPadding: 3 },
+    columnStyles: {
+      0: { fontStyle: 'bold', fillColor: LIGHT, textColor: DARK, cellWidth: 50 },
+      1: { textColor: DARK }
+    },
+    theme: 'plain', tableLineColor: [220,218,214], tableLineWidth: 0.2,
+  });
+  y = doc.lastAutoTable.finalY + 8;
+
+  if (!cot) {
+    doc.setFontSize(10); doc.setTextColor(180,100,0);
+    doc.text('No se ha generado cotizacion. Pulsa "Generar Cotizacion" primero.', mg, y);
+  } else {
+    const resBoxes = [
+      { label: 'Total Horas', value: cot.totalH.toFixed(1) + ' h' },
+      { label: 'Coste Manipulacion', value: cot.costManip.toFixed(0) + ' EUR' },
+      { label: 'Coste Adicional', value: cot.costAdv > 0 ? cot.costAdv + ' EUR' : '—' },
+      { label: 'TOTAL COTIZACION', value: Math.round(cot.totalCost) + ' EUR' },
+      { label: 'Dias Estimados', value: cot.dias + ' dia' + (cot.dias > 1 ? 's' : '') },
+    ];
+    const boxW = (W - mg*2 - 8) / resBoxes.length;
+    resBoxes.forEach((b, i) => {
+      const bx = mg + i * (boxW + 2);
+      const isTotal = b.label.includes('TOTAL');
+      if(isTotal) doc.setFillColor(...GOLD); else doc.setFillColor(...LIGHT);
+      doc.roundedRect(bx, y, boxW, 16, 2, 2, 'F');
+      doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
+      if(isTotal) doc.setTextColor(255,255,255); else doc.setTextColor(100,100,100);
+      doc.text(b.label, bx + boxW/2, y + 5, { align: 'center' });
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+      if(isTotal) doc.setTextColor(255,255,255); else doc.setTextColor(...DARK);
+      doc.text(b.value, bx + boxW/2, y + 12, { align: 'center' });
+    });
+    doc.setTextColor(0,0,0);
+    y += 22;
+
+    y = sectionTitle(doc, y, '2. Desglose de Tareas de Manipulado');
+    const cph = cot.cph;
+    const taskRows = cot.rows.map(r => {
+      const h = r.sec / 3600;
+      const tiempoUd = r.cant > 0 ? fmtTime(r.sec / r.cant) : '—';
+      return [r.name, r.cant.toLocaleString('es-ES')+' '+r.unit+'s', tiempoUd, fmtTime(r.sec), h.toFixed(2)+' h', (h*cph).toFixed(2)+' EUR'];
+    });
+    if (cot.fixedSec > 0) {
+      FIXED.forEach(ft => {
+        if (!S.fixed[ft.id]) return;
+        const h = S.fixedH[ft.id] || ft.hours;
+        taskRows.push([ft.name,'—','—',h+'h',h.toFixed(2)+' h',(h*cph).toFixed(0)+' EUR']);
+      });
+    }
+    taskRows.push([
+      { content: 'TOTAL', styles: { fontStyle: 'bold' } },'','',
+      { content: fmtTime(cot.totalSec), styles: { fontStyle: 'bold' } },
+      { content: cot.totalH.toFixed(1)+' h', styles: { fontStyle: 'bold' } },
+      { content: Math.round(cot.totalCost)+' EUR', styles: { fontStyle: 'bold', textColor: GOLD } }
+    ]);
+    doc.autoTable({
+      startY: y, margin: { left: mg, right: mg },
+      head: [['Tarea','Cantidad','T/Ud','Total Tiempo','Horas','Coste']],
+      body: taskRows,
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: DARK, textColor: [255,255,255], fontStyle: 'bold', fontSize: 7.5 },
+      alternateRowStyles: { fillColor: [250,250,248] },
+      theme: 'grid', tableLineColor: [220,218,214], tableLineWidth: 0.1,
+      didParseCell: (data) => {
+        if (data.row.index === taskRows.length - 1) data.cell.styles.fillColor = [253,248,237];
+      }
+    });
+    y = doc.lastAutoTable.finalY + 6;
+    if (y > 270) { doc.addPage(); y = 28; }
+  }
+
+  // ── CUBICAJE AÉREO ──
+  const hasCub = cub && cub.pales && cub.pales.length > 0;
+  if (hasCub) {
+    if (y > 200) { doc.addPage(); y = 28; }
+    y = sectionTitle(doc, y, '3. Cubicaje Aereo — Datos para Cotizacion', BLUE);
+
+    const cubBoxes = [
+      { label: 'N. de Pales', value: cub.numPales.toString(), color: BLUE },
+      { label: 'Total Bultos', value: cub.totalBultos.toString()+' cajas', color: DARK },
+      { label: 'Vol. Real Cajas', value: cub.totalVolCajas.toFixed(3)+' m3', color: [124,58,237] },
+      { label: 'Vol. Total Pales', value: cub.volTotalPales.toFixed(3)+' m3', color: BLUE },
+      { label: 'Peso Real Total', value: cub.totalPeso.toFixed(1)+' kg', color: [21,128,61] },
+    ];
+    const cbW = (W - mg*2 - 8) / cubBoxes.length;
+    cubBoxes.forEach((b,i)=>{
+      const bx = mg + i*(cbW+2);
+      doc.setFillColor(240,245,255);
+      doc.roundedRect(bx,y,cbW,16,2,2,'F');
+      doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
+      doc.text(b.label,bx+cbW/2,y+5,{align:'center'});
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...b.color);
+      doc.text(b.value,bx+cbW/2,y+12,{align:'center'});
+    });
+    doc.setTextColor(0,0,0); y += 22;
+
+    doc.setFillColor(245,245,243);
+    doc.roundedRect(mg,y,W-mg*2,10,2,2,'F');
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+    doc.text('Pale europeo 120x80x160 cm  |  Altura util: 145 cm  |  Vol. pale: 1.536 m3  |  Peso max.: 1.500 kg/pale',mg+3,y+6.5);
+    doc.setTextColor(0,0,0); y += 15;
+
+    if(cub.rowsV&&cub.rowsV.length>0){
+      y = sectionTitle(doc,y,'4. Cajas del Pedido (Aereo)');
+      const cajasHead=[['Descripcion','Largo','Ancho','Alto','Peso/ud','Cantidad','Caben/pale','Pisos','N. Pales']];
+      const cajasBody=cub.rowsV.map(r=>{
+        const fi=fitCaja(r.l,r.a,r.h);
+        const numPalesR=fi.total>0?Math.ceil(r.n/fi.total):0;
+        return[r.desc,r.l+' cm',r.a+' cm',r.h+' cm',r.p+' kg',r.n.toString(),fi.total>0?fi.total.toString():'No cabe',fi.pisos.toString(),numPalesR>0?numPalesR.toString():'—'];
+      });
+      doc.autoTable({startY:y,margin:{left:mg,right:mg},head:cajasHead,body:cajasBody,styles:{fontSize:8,cellPadding:2.5},headStyles:{fillColor:DARK,textColor:[255,255,255],fontSize:7.5},alternateRowStyles:{fillColor:[250,250,248]},theme:'grid',tableLineWidth:0.1});
+      y = doc.lastAutoTable.finalY + 8;
+    }
+
+    if(y>200){doc.addPage();y=28;}
+    y = sectionTitle(doc,y,'5. Desglose Pale a Pale (Aereo)',BLUE);
+    const paleHead=[['Pale','Descripcion','Cajas','% Lleno','Alt. Carga','Vol. Cajas','Peso Real']];
+    const paleBody=cub.pales.map((pale,idx)=>{
+      if(pale.err)return[`Pale ${idx+1}`,pale.cajas[0].desc+' (ERROR: no cabe)','—','—','—','—','—'];
+      const c=pale.cajas[0];const fi=c.fi;
+      return[`Pale ${idx+1}`,`${c.desc}\n${fi.cajasL}x${fi.cajasA} por piso, ${fi.pisos} pisos`,pale.nCajas.toString(),pale.pctLlenado+'%',fi.pisos*c.h+' cm',pale.volCajas.toFixed(4)+' m3',pale.peso.toFixed(2)+' kg'];
+    });
+    paleBody.push([{content:'TOTAL',styles:{fontStyle:'bold'}},{content:cub.numPales+' pales',styles:{fontStyle:'bold'}},{content:cub.totalBultos.toString(),styles:{fontStyle:'bold'}},'—','—',{content:cub.totalVolCajas.toFixed(3)+' m3',styles:{fontStyle:'bold',textColor:[124,58,237]}},{content:cub.totalPeso.toFixed(2)+' kg',styles:{fontStyle:'bold',textColor:[21,128,61]}}]);
+    doc.autoTable({startY:y,margin:{left:mg,right:mg},head:paleHead,body:paleBody,styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:BLUE,textColor:[255,255,255],fontSize:7.5},alternateRowStyles:{fillColor:[239,246,255]},theme:'grid',tableLineWidth:0.1,didParseCell:(data)=>{if(data.row.index===paleBody.length-1){data.cell.styles.fillColor=[26,26,26];data.cell.styles.textColor=[255,255,255];}}});
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  // ── COTIZACIÓN TERRESTRE ──
+  const hasTerr = terr && terr.pales && terr.pales.length > 0;
+  if(hasTerr){
+    if(y > 180){ doc.addPage(); y = 28; }
+    y = sectionTitle(doc, y, hasCub ? '6. Cotizacion Terrestre — Datos para Transporte' : '3. Cotizacion Terrestre — Datos para Transporte', ORANGE);
+
+    const terrBoxes=[
+      {label:'N. de Pales',value:terr.numPales.toString(),color:ORANGE},
+      {label:'Total Bultos',value:terr.totalBultos.toString()+' cajas',color:DARK},
+      {label:'Vol. Real Cajas',value:terr.totalVolCajas.toFixed(3)+' m3',color:[124,58,237]},
+      {label:'Vol. Total Pales',value:terr.volTotalPales.toFixed(3)+' m3',color:ORANGE},
+      {label:'Peso Real Total',value:terr.totalPeso.toFixed(1)+' kg',color:[21,128,61]},
+    ];
+    const tbW=(W-mg*2-8)/terrBoxes.length;
+    terrBoxes.forEach((b,i)=>{
+      const bx=mg+i*(tbW+2);
+      doc.setFillColor(255,247,237);
+      doc.roundedRect(bx,y,tbW,16,2,2,'F');
+      doc.setFontSize(6);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
+      doc.text(b.label,bx+tbW/2,y+5,{align:'center'});
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(...b.color);
+      doc.text(b.value,bx+tbW/2,y+12,{align:'center'});
+    });
+    doc.setTextColor(0,0,0); y+=22;
+
+    doc.setFillColor(255,247,237);
+    doc.roundedRect(mg,y,W-mg*2,10,2,2,'F');
+    doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(146,64,14);
+    doc.text(`Pale 120x80x180 cm  |  Pale: 15 cm  |  Altura util carga: ${PH_TERR_UTIL} cm  |  Vol. pale: 1.728 m3  |  Peso max.: 1.500 kg/pale`,mg+3,y+6.5);
+    doc.setTextColor(0,0,0); y+=15;
+
+    if(terr.rowsV&&terr.rowsV.length>0){
+      y=sectionTitle(doc,y,'Cajas del Pedido (Terrestre)',ORANGE);
+      const cajasHead=[['Descripcion','Largo','Ancho','Alto','Peso/ud','Cantidad','Caben/pale','Pisos','N. Pales']];
+      const cajasBody=terr.rowsV.map(r=>{
+        const fi=fitCaja(r.l,r.a,r.h,PH_TERR_UTIL);
+        const nP=fi.total>0?Math.ceil(r.n/fi.total):0;
+        return[r.desc,r.l+' cm',r.a+' cm',r.h+' cm',r.p+' kg',r.n.toString(),fi.total>0?fi.total.toString():'No cabe',fi.pisos.toString(),nP>0?nP.toString():'—'];
+      });
+      doc.autoTable({startY:y,margin:{left:mg,right:mg},head:cajasHead,body:cajasBody,styles:{fontSize:8,cellPadding:2.5},headStyles:{fillColor:[146,64,14],textColor:[255,255,255],fontSize:7.5},alternateRowStyles:{fillColor:[255,247,237]},theme:'grid',tableLineWidth:0.1});
+      y=doc.lastAutoTable.finalY+8;
+    }
+
+    if(y>200){doc.addPage();y=28;}
+    y=sectionTitle(doc,y,'Desglose Pale a Pale (Terrestre)',ORANGE);
+    const tPaleHead=[['Pale','Descripcion','Cajas','% Lleno','Alt. Carga','Vol. Cajas','Peso Real']];
+    const tPaleBody=terr.pales.map((pale,idx)=>{
+      if(pale.err)return[`Pale ${idx+1}`,pale.cajas[0].desc+' (ERROR: no cabe)','—','—','—','—','—'];
+      const c=pale.cajas[0];const fi=c.fi;
+      return[`Pale ${idx+1}`,`${c.desc}\n${fi.cajasL}x${fi.cajasA} por piso, ${fi.pisos} pisos`,pale.nCajas.toString(),pale.pctLlenado+'%',fi.pisos*c.h+' cm',pale.volCajas.toFixed(4)+' m3',pale.peso.toFixed(2)+' kg'];
+    });
+    tPaleBody.push([{content:'TOTAL',styles:{fontStyle:'bold'}},{content:terr.numPales+' pales',styles:{fontStyle:'bold'}},{content:terr.totalBultos.toString(),styles:{fontStyle:'bold'}},'—','—',{content:terr.totalVolCajas.toFixed(3)+' m3',styles:{fontStyle:'bold',textColor:[124,58,237]}},{content:terr.totalPeso.toFixed(2)+' kg',styles:{fontStyle:'bold',textColor:[21,128,61]}}]);
+    doc.autoTable({startY:y,margin:{left:mg,right:mg},head:tPaleHead,body:tPaleBody,styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[146,64,14],textColor:[255,255,255],fontSize:7.5},alternateRowStyles:{fillColor:[255,247,237]},theme:'grid',tableLineWidth:0.1,didParseCell:(data)=>{if(data.row.index===tPaleBody.length-1){data.cell.styles.fillColor=[146,64,14];data.cell.styles.textColor=[255,255,255];}}});
+    y=doc.lastAutoTable.finalY+8;
+
+    if(y>240){doc.addPage();y=28;}
+    doc.setFillColor(...ORANGE);
+    doc.roundedRect(mg,y,W-mg*2,8,2,2,'F');
+    doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+    doc.text('DATOS PARA COTIZACION TRANSPORTE TERRESTRE',mg+4,y+5.5);
+    doc.setTextColor(0,0,0); y+=10;
+    doc.autoTable({
+      startY:y,margin:{left:mg,right:mg},
+      head:[['NUMERO DE PALES','TOTAL BULTOS','VOLUMEN REAL CAJAS','PESO REAL TOTAL']],
+      body:[[
+        {content:terr.numPales+' pales\n120 x 80 x 180 cm',styles:{fontStyle:'bold',fontSize:11,textColor:ORANGE}},
+        {content:terr.totalBultos+' cajas',styles:{fontStyle:'bold',fontSize:11,textColor:DARK}},
+        {content:terr.totalVolCajas.toFixed(3)+' m3',styles:{fontStyle:'bold',fontSize:14,textColor:[124,58,237]}},
+        {content:terr.totalPeso.toFixed(2)+' kg',styles:{fontStyle:'bold',fontSize:14,textColor:[21,128,61]}}
+      ]],
+      styles:{cellPadding:6,halign:'center',valign:'middle',lineColor:ORANGE,lineWidth:0.3},
+      headStyles:{fillColor:[255,247,237],textColor:[146,64,14],fontSize:7,fontStyle:'bold',halign:'center',cellPadding:4},
+      theme:'grid',
+    });
+    y=doc.lastAutoTable.finalY+8;
+  }
+
+  // Encabezados y pies en todas las páginas
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    addHeader(p, totalPages);
+    addFooter();
+  }
+
+  const cliente = cot ? (cot.cliente || cot.fabricante || 'pedido') : 'pedido';
+  const safeCliente = cliente.replace(/[^a-z0-9áéíóúñ_\-]/gi,'_').toLowerCase();
+  const fecha = now.toISOString().slice(0,10);
+  doc.save(`cotizacion_${safeCliente}_${fecha}.pdf`);
 }
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+renderFixedPuroTasks(document.getElementById('puro-fixed-tasks'));
+renderWithCant(document.getElementById('puro-tasks'), PURO_OPT_TASKS, false);
+renderWithCant(document.getElementById('caja-tasks'), CAJA_TASKS, false);
+renderWithCant(document.getElementById('mastercase-tasks'), MASTERCASE_TASKS, false);
+renderFixed(document.getElementById('fixed-tasks'));
+renderCat(); renderCatSel();
+renderTerrCat(); renderTerrCatSel();
+calc(); calcTerr();
 </script>
 </body>
 </html>
